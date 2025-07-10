@@ -29,7 +29,8 @@ are appended to `notes/journal.json` for later review.
 | Layer | Model | Role |
 |-------|-------|------|
 | **Memory** | `gpt-4o-mini` | Fast, cheap, long-range context store (`/lighthouse-memory`). |
-| **Reasoning core** | `llama-3.1-sonar-small-128k-chat` | High-speed exploratory reasoning; builds “A→B→C→… ⇒ ?” chains. |
+| **Reasoning core** | `gpt-4o` | Primary reasoning engine via Assistants API. |
+| **Sonar filter** | `llama-3.1-sonar-small-128k-chat` | Optional refinement stage for responses. |
 
 Contrast is deliberate: GPT’s broad semantic net + Sonar’s crisp retrieval create a *Möbius loop* of perspectives.  
 The current implementation follows **assistants-v2** threads for memory and direct REST calls for Sonar.
