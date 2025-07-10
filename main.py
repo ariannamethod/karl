@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import random
 from datetime import datetime
@@ -25,9 +26,9 @@ dp = Dispatcher(bot)
 client = OpenAI(api_key=OPENAI_API_KEY)
 assistants = Assistants(client=client)
 
-# Will be filled at startup
-CORE_ASSISTANT_ID = None
-MEMORY_ASSISTANT_ID = None
+# Existing assistant IDs can be provided via env vars
+CORE_ASSISTANT_ID = os.getenv("CORE_ASSISTANT_ID")
+MEMORY_ASSISTANT_ID = os.getenv("MEMORY_ASSISTANT_ID")
 
 memory = MemoryManager(db_path="lighthouse_memory.db")
 
@@ -54,7 +55,25 @@ Style:
 
 async def setup_assistants():
     global CORE_ASSISTANT_ID, MEMORY_ASSISTANT_ID
-    # Core on Sonar
+
+    # 1. Check env vars or saved file
+    if CORE_ASSISTANT_ID and MEMORY_ASSISTANT_ID:
+        # Validate they exist
+        await assistants.retrieve(CORE_ASSISTANT_ID)
+        await assistants.retrieve(MEMORY_ASSISTANT_ID)
+        return
+
+    if os.path.exists("assistants.json"):
+        with open("assistants.json", "r") as fh:
+            data = json.load(fh)
+            CORE_ASSISTANT_ID = data.get("core")
+            MEMORY_ASSISTANT_ID = data.get("memory")
+        if CORE_ASSISTANT_ID and MEMORY_ASSISTANT_ID:
+            await assistants.retrieve(CORE_ASSISTANT_ID)
+            await assistants.retrieve(MEMORY_ASSISTANT_ID)
+            return
+
+    # 2. Create new assistants
     resp = await assistants.create(
         name="lighthouse-core",
         instructions=INDIANA_PERSONA + "\n\nRESEARCH TASK: {{user}}",
@@ -63,7 +82,6 @@ async def setup_assistants():
     )
     CORE_ASSISTANT_ID = resp["id"]
 
-    # Memory on GPT-4o-mini
     resp2 = await assistants.create(
         name="lighthouse-memory",
         instructions="You manage memory for Lighthouse. Only save/retrieve context, do not generate responses.",
@@ -71,6 +89,9 @@ async def setup_assistants():
         tools=[]
     )
     MEMORY_ASSISTANT_ID = resp2["id"]
+
+    with open("assistants.json", "w") as fh:
+        json.dump({"core": CORE_ASSISTANT_ID, "memory": MEMORY_ASSISTANT_ID}, fh)
 
 # Delayed follow-up
 async def delayed_followup(chat_id: int, original: str, private: bool):

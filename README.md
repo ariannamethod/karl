@@ -120,9 +120,14 @@ Indiana cites and cross-links papers on **Dynamic Neural Field Theory** (Atasoy 
 git clone https://github.com/ariannamethod/Indiana-AM.git
 cd Indiana-AM
 cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY, PERPLEXITY_API_KEY …
+# After first run, fill CORE_ASSISTANT_ID and MEMORY_ASSISTANT_ID in .env
 pip install -r requirements.txt
 python main.py
 ```
+
+The first run will create `assistants.json` with generated IDs. Copy them to
+`CORE_ASSISTANT_ID` and `MEMORY_ASSISTANT_ID` in your `.env` to reuse the same
+assistants across restarts.
 
 ## 7. License  
 MIT — because archaeology of consciousness should stay open.
