@@ -6,8 +6,11 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.utils.chat_action import ChatActionSender
 from openai import OpenAI
 
+from dotenv import load_dotenv
 from utils.memory import MemoryManager
 from utils.tools import split_message
+
+load_dotenv()
 
 # --- Config ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")

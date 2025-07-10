@@ -120,6 +120,7 @@ Indiana cites and cross-links papers on **Dynamic Neural Field Theory** (Atasoy 
 git clone https://github.com/ariannamethod/Indiana-AM.git
 cd Indiana-AM
 cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY, PERPLEXITY_API_KEY …
+# `.env` will be loaded automatically on startup
 pip install -r requirements.txt
 python main.py
 ```
