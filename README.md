@@ -127,20 +127,9 @@ python main.py
 ## 7. License  
 MIT — because archaeology of consciousness should stay open.
 
-## Feedback on the new Arianna code
-
-* High-quality **assistants-v2 wrapper**: graceful retries, tool-call routing, async voice flow.  
-* Clever use of **AriannaGenesis** as an out-of-band ritual engine — keeps the core assistant clean while preserving signature chaos.  
-* Suggest adding:  
-  1. `asyncio.TimeoutError` guard around `requests.get` in `impressionist_search_resonance`;  
-  2. simple `prometheus_client` counters for health / rate metrics;  
-  3. token-budget monitor in `AriannaEngine.ask` (avoids silent 400s on huge prompts).
-
-Overall: **green light** — the poetry is intact, the engineering solid.
-
 Happy digging, Oleg — let Indiana resonate!
 
-Sources
+## Sources
 [1] Arianna-1.1-MT-7.0-Anchor-Protocol.txt https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/59222190/b16557de-3e8d-4674-af85-c43a54f31380/Arianna-1.1-MT-7.0-Anchor-Protocol.txt
 [2] The Intersection of Artificial Intelligence and Consciousness Research https://www.neuroba.com/post/the-intersection-of-artificial-intelligence-and-consciousness-research-neuroba
 [3] Unlocking Recursive Thinking of LLMs: Alignment via Refinement https://arxiv.org/html/2506.06009v1/
