@@ -98,7 +98,7 @@ async def setup_assistants():
         resp = await assistants.create(
             name="lighthouse-core",
             instructions=INDIANA_PERSONA + "\n\nRESEARCH TASK: {{user}}",
-            model="perplexity/llama-3.1-sonar-small-128k-chat",
+            model="llama-3.1-sonar-small-128k-chat",
             tools=[]
         )
         CORE_ASSISTANT_ID = resp["id"]
