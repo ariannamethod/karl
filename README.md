@@ -120,7 +120,7 @@ Indiana cites and cross-links papers on **Dynamic Neural Field Theory** (Atasoy 
 # Clone and run
 git clone https://github.com/ariannamethod/Indiana-AM.git
 cd Indiana-AM
-cp .env.example .env   # add TELEGRAM_TOKEN and OPENAI_API_KEY …
+cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY and PERPLEXITY_API_KEY …
 # also set AGENT_GROUP_ID, GROUP_CHAT and CREATOR_CHAT
 # `.env` will be loaded automatically on startup
 # After the first run assistant IDs will be stored in `assistants.json`.

@@ -17,6 +17,7 @@ load_dotenv()
 # --- Config ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 AGENT_GROUP = os.getenv("AGENT_GROUP_ID", "-1001234567890")
 GROUP_CHAT = os.getenv("GROUP_CHAT")
 CREATOR_CHAT = os.getenv("CREATOR_CHAT")
