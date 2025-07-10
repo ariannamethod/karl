@@ -1,4 +1,5 @@
 def split_message(text: str, max_length: int = 4000):
+    """Split a message into chunks respecting maximum length limit."""
     parts = []
     while len(text) > max_length:
         cut = text.rfind("\n", 0, max_length)
@@ -8,4 +9,3 @@ def split_message(text: str, max_length: int = 4000):
     if text:
         parts.append(text)
     return parts
-
