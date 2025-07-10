@@ -5,7 +5,6 @@ from datetime import datetime
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils.chat_action import ChatActionSender
 from openai import OpenAI
-from openai.assistants import Assistants
 
 from utils.memory import MemoryManager
 from utils.tools import split_message
@@ -23,7 +22,7 @@ dp = Dispatcher(bot)
 
 # --- OpenAI Assistants setup ---
 client = OpenAI(api_key=OPENAI_API_KEY)
-assistants = Assistants(client=client)
+assistants = client.beta.assistants
 
 # Will be filled at startup
 CORE_ASSISTANT_ID = None
