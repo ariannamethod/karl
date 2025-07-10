@@ -18,6 +18,7 @@ class MemoryManager:
         self.db.commit()
 
     async def save(self, user_id: str, query: str, response: str):
+        """Save user query and response to memory database."""
         ts = datetime.utcnow().isoformat()
         self.db.execute(
             "INSERT INTO memory VALUES (?,?,?,?)",
@@ -26,6 +27,7 @@ class MemoryManager:
         self.db.commit()
 
     async def retrieve(self, user_id: str, query: str) -> str:
+        """Retrieve last 5 responses for a given user as context."""
         cur = self.db.execute(
             "SELECT response FROM memory WHERE user_id=? ORDER BY timestamp DESC LIMIT 5",
             (user_id,)
@@ -35,4 +37,3 @@ class MemoryManager:
             return ""
         # склеиваем последние 5 ответов как контекст
         return "\n".join(r[0] for r in rows)
-
