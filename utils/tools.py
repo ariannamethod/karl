@@ -8,3 +8,4 @@ def split_message(text: str, max_length: int = 4000):
     if text:
         parts.append(text)
     return parts
+

@@ -35,3 +35,4 @@ class MemoryManager:
             return ""
         # склеиваем последние 5 ответов как контекст
         return "\n".join(r[0] for r in rows)
+
