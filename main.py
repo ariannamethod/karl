@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils.chat_action import ChatActionSender
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from dotenv import load_dotenv
 from utils.memory import MemoryManager
@@ -29,7 +29,7 @@ bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
 
 # --- OpenAI Assistants setup ---
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 assistants = client.beta.assistants
 
 # Will be filled at startup
