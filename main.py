@@ -73,12 +73,12 @@ async def setup_assistants():
     MEMORY_ASSISTANT_ID = resp2["id"]
 
 # Delayed follow-up
-async def delayed_followup(chat_id: int, original: str, private: bool):
+async def delayed_followup(chat_id: int, user_id: str, original: str, private: bool):
     delay = random.uniform(30,60) if private else random.uniform(300,900)
     await asyncio.sleep(delay)
     prompt = f"#followup\nRemind me about: {original}"
     # Include saved memory
-    context = await memory.retrieve(chat_id, original)
+    context = await memory.retrieve(user_id, original)
     msgs = [{"role":"system","content":context},
             {"role":"user","content": prompt}]
     resp = await assistants.chat.completions.create(
@@ -121,7 +121,7 @@ async def handle_investigation(m: types.Message):
         await m.answer(chunk)
 
     # 5) Schedule follow-up
-    asyncio.create_task(delayed_followup(chat_id, m.text, private))
+    asyncio.create_task(delayed_followup(chat_id, user_id, m.text, private))
 
 @dp.message()
 async def catch_all(m: types.Message):
