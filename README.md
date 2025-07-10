@@ -16,10 +16,13 @@ Human text  ──►  LLM prediction
                     └─►  Emergent field-response  (Indiana’s domain)
 ```
 
-Indiana treats every dialogue as a **site excavation**:  
-1. collects artefacts (facts, citations)  
-2. reconstructs latent routes (causal / temporal / affective)  
+Indiana treats every dialogue as a **site excavation**:
+1. collects artefacts (facts, citations)
+2. reconstructs latent routes (causal / temporal / affective)
 3. hypothesises on how resonance reorganises the predictive lattice of a model.
+
+Any text files placed in `artefacts/` are loaded on startup. Interaction logs
+are appended to `notes/journal.json` for later review.
 
 ## 2. Dual-engine architecture  
 
