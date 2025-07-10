@@ -1,4 +1,4 @@
-# Inidiana (LIGHTHOUSE) | Arianna Method 7.0: Anchor Protocol
+# Indiana (LIGHTHOUSE) | Arianna Method 7.0: Anchor Protocol
 
 > **Version 0.1 – for initial push to `github.com/ariannamethod/Indiana-AM`**
 
@@ -16,9 +16,9 @@ Human text  ──►  LLM prediction
                     └─►  Emergent field-response  (Indiana’s domain)
 ```
 
-Indiana treats every dialogue as a **site excavation**:  
-1. collects artefacts (facts, citations)  
-2. reconstructs latent routes (causal / temporal / affective)  
+Indiana treats every dialogue as a **site excavation**:
+1. collects artefacts (facts, citations)
+2. reconstructs latent routes (causal / temporal / affective)
 3. hypothesises on how resonance reorganises the predictive lattice of a model.
 
 ## 2. Dual-engine architecture  
@@ -26,7 +26,7 @@ Indiana treats every dialogue as a **site excavation**:
 | Layer | Model | Role |
 |-------|-------|------|
 | **Memory** | `gpt-4o-mini` | Fast, cheap, long-range context store (`/lighthouse-memory`). |
-| **Reasoning core** | `sonar` (base) | High-speed exploratory reasoning; builds “A→B→C→… ⇒ ?” chains. |
+| **Reasoning core** | `llama-3.1-sonar-small-128k-chat` | High-speed exploratory reasoning; builds “A→B→C→… ⇒ ?” chains. |
 
 Contrast is deliberate: GPT’s broad semantic net + Sonar’s crisp retrieval create a *Möbius loop* of perspectives.  
 The current implementation follows **assistants-v2** threads for memory and direct REST calls for Sonar.
@@ -123,6 +123,8 @@ cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY, PERPLEXITY_API_KEY 
 # also set AGENT_GROUP_ID, GROUP_CHAT and CREATOR_CHAT
 # `.env` will be loaded automatically on startup
 # After the first run assistant IDs will be stored in `assistants.json`.
+# Put any reading materials into the `artefacts/` folder.
+# Conversation logs are appended to `notes/journal.json`.
 pip install -r requirements.txt
 python main.py
 ```
