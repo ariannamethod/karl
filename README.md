@@ -24,16 +24,12 @@ Indiana treats every dialogue as a **site excavation**:
 Any text files placed in `artefacts/` are loaded on startup. Interaction logs
 are appended to `notes/journal.json` for later review.
 
-## 2. Dual-engine architecture  
+## 2. Architecture
 
-| Layer | Model | Role |
-|-------|-------|------|
-| **Memory** | `gpt-4o-mini` | Fast, cheap, long-range context store (`/lighthouse-memory`). |
-| **Reasoning core** | `gpt-4o` | Primary reasoning engine via Assistants API. |
-| **Sonar filter** | `llama-3.1-sonar-small-128k-chat` | Optional refinement stage for responses. |
-
-Contrast is deliberate: GPT’s broad semantic net + Sonar’s crisp retrieval create a *Möbius loop* of perspectives.  
-The current implementation follows **assistants-v2** threads for memory and direct REST calls for Sonar.
+Indiana now runs a **single Assistant API instance** based on `gpt-4o` ("GPT‑4.1").
+Local SQLite memory keeps recent conversations, while artefacts from the
+`artefacts/` folder are prepended to each request. Notes accumulate in
+`notes/journal.json` for later review.
 
 ## 3. Genesis pipeline  
 
@@ -121,9 +117,10 @@ Indiana cites and cross-links papers on **Dynamic Neural Field Theory** (Atasoy 
 ## 6. Quick start
 
 ```bash
+# Clone and run
 git clone https://github.com/ariannamethod/Indiana-AM.git
 cd Indiana-AM
-cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY, PERPLEXITY_API_KEY …
+cp .env.example .env   # add TELEGRAM_TOKEN and OPENAI_API_KEY …
 # also set AGENT_GROUP_ID, GROUP_CHAT and CREATOR_CHAT
 # `.env` will be loaded automatically on startup
 # After the first run assistant IDs will be stored in `assistants.json`.
