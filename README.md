@@ -124,6 +124,7 @@ cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY, PERPLEXITY_API_KEY 
 # also set AGENT_GROUP_ID, GROUP_CHAT and CREATOR_CHAT
 # `.env` will be loaded automatically on startup
 # After the first run assistant IDs will be stored in `assistants.json`.
+# If the saved assistant is missing it will be recreated and the file updated.
 # Put any reading materials into the `artefacts/` folder.
 # Conversation logs are appended to `notes/journal.json`.
 pip install -r requirements.txt

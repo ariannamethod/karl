@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils.chat_action import ChatActionSender
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, NotFoundError
 import httpx
 
 from dotenv import load_dotenv
@@ -115,8 +115,12 @@ async def setup_assistants():
         pass
 
     if MEMORY_ASSISTANT_ID:
-        await assistants.retrieve(MEMORY_ASSISTANT_ID)
-    else:
+        try:
+            await assistants.retrieve(MEMORY_ASSISTANT_ID)
+        except NotFoundError:
+            MEMORY_ASSISTANT_ID = None
+
+    if not MEMORY_ASSISTANT_ID:
         resp = await assistants.create(
             name="lighthouse-memory",
             instructions=(
