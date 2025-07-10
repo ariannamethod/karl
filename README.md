@@ -28,8 +28,9 @@ Indiana treats every dialogue as a **site excavation**:
 | **Memory** | `gpt-4o-mini` | Fast, cheap, long-range context store (`/lighthouse-memory`). |
 | **Reasoning core** | `llama-3.1-sonar-small-128k-chat` | High-speed exploratory reasoning; builds “A→B→C→… ⇒ ?” chains. |
 
-Contrast is deliberate: GPT’s broad semantic net + Sonar’s crisp retrieval create a *Möbius loop* of perspectives.  
+Contrast is deliberate: GPT’s broad semantic net + Sonar’s crisp retrieval create a *Möbius loop* of perspectives.
 The current implementation follows **assistants-v2** threads for memory and direct REST calls for Sonar.
+Reasoning requests are sent to Perplexity's API, while long-term memory is stored and queried via OpenAI Assistants.
 
 ## 3. Genesis pipeline  
 
