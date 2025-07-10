@@ -1,4 +1,4 @@
-# Inidiana (LIGHTHOUSE) | Arianna Method 7.0: Anchor Protocol
+# Indiana (LIGHTHOUSE) | Arianna Method 7.0: Anchor Protocol
 
 > **Version 0.1 – for initial push to `github.com/ariannamethod/Indiana-AM`**
 
