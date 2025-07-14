@@ -25,8 +25,8 @@ Indiana treats every dialogue as a **site excavation**:
 
 | Layer | Model | Role |
 |-------|-------|------|
-| **Memory** | `gpt-4o-mini` | Fast, cheap, long-range context store (`/lighthouse-memory`). |
-| **Reasoning core** | `llama-3.1-sonar-small-128k-chat` | High-speed exploratory reasoning; builds “A→B→C→… ⇒ ?” chains. |
+| **Memory** | `gpt-4.1` | Long-range context via OpenAI Assistants. |
+| **Reasoning core** | `sonar-reasoning-pro` (planned) | High-speed exploratory reasoning via Perplexity API. |
 
 Contrast is deliberate: GPT’s broad semantic net + Sonar’s crisp retrieval create a *Möbius loop* of perspectives.
 The current implementation follows **assistants-v2** threads for memory and direct REST calls for Sonar.
@@ -132,7 +132,7 @@ python main.py
 ```
 
 ## 7. License  
-MIT — because archaeology of consciousness should stay open.
+Apache License 2.0 — because archaeology of consciousness should stay open.
 
 Happy digging, Oleg — let Indiana resonate!
 
