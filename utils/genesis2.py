@@ -6,10 +6,11 @@ from openai import AsyncOpenAI
 
 from .config import settings
 
-# Genesis2 previously referenced a non-existent model name.  The
+# Genesis2 previously referenced a non-existent model name. The
 # correct OpenAI model identifier is simply "o3" as per the public
-# documentation.  Using the wrong name resulted in model_not_found
-# errors during runtime.
+# documentation. Using the wrong name resulted in ``model_not_found``
+# errors during runtime. The ``o3`` model also ignores custom
+# ``temperature`` values, so we keep the default ``1``.
 OPENAI_MODEL = "o3"
 TIMEOUT = 25
 
@@ -42,7 +43,8 @@ async def _call_openai(messages: list[dict[str, str]]) -> str:
 
     resp = await client.chat.completions.create(
         model=OPENAI_MODEL,
-        temperature=0.9,
+        # ``o3`` only supports the default temperature value of ``1``.
+        temperature=1,
         messages=messages,
         max_completion_tokens=120,
         timeout=TIMEOUT,
