@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 
 from utils.memory import MemoryManager
 from utils.tools import split_message
+from utils.vectorstore import VectorStore
+from utils import dayandnight
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -50,7 +52,8 @@ client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 # Will be filled at startup
 ASSISTANT_ID = None
 
-memory = MemoryManager(db_path="lighthouse_memory.db")
+vector_store = VectorStore()
+memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 AFTERTHOUGHT_CHANCE = 0.1
 
 def load_artifacts() -> str:
@@ -253,7 +256,8 @@ async def handle_message(m: types.Message):
 
         # 1) Load context from memory and artifacts
         mem_ctx = await memory.retrieve(user_id, text)
-        system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx
+        vector_ctx = "\n".join(await memory.search_memory(text))
+        system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx + "\n" + vector_ctx
 
         # 2) Process with Assistant API instead of Perplexity
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
@@ -273,6 +277,7 @@ async def handle_message(m: types.Message):
         # 6) Randomly schedule afterthought
         if random.random() < AFTERTHOUGHT_CHANCE:
             asyncio.create_task(afterthought(chat_id, user_id, text, private))
+        await dayandnight.ensure_daily_entry()
     except Exception as e:
         logger.error(f"Error in handle_message: {e}")
         await m.answer(f"I encountered an error while processing your message: {str(e)}")
@@ -281,6 +286,8 @@ async def handle_message(m: types.Message):
 async def on_startup(app):
     """Setup webhook on startup."""
     await setup_assistant()
+    await dayandnight.init_vector_memory()
+    asyncio.create_task(dayandnight.start_daily_task())
     
     # Set webhook
     webhook_info = await bot.get_webhook_info()
