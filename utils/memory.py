@@ -2,12 +2,12 @@ import sqlite3
 from datetime import datetime
 from typing import Optional
 
-from .vectorstore import VectorStore
+from .vectorstore import BaseVectorStore, create_vector_store
 
 class MemoryManager:
-    def __init__(self, db_path: str = "memory.db", vectorstore: Optional[VectorStore] = None):
+    def __init__(self, db_path: str = "memory.db", vectorstore: Optional[BaseVectorStore] = None):
         self.db = sqlite3.connect(db_path, check_same_thread=False)
-        self.vectorstore = vectorstore
+        self.vectorstore = vectorstore or create_vector_store()
         self._init_db()
 
     def _init_db(self):
@@ -53,5 +53,7 @@ class MemoryManager:
             return []
         try:
             return await self.vectorstore.search(query, top_k)
-        except Exception:
+        except Exception as e:
+            # log and fall back to empty list
+            print(f"Vector search failed: {e}")
             return []
