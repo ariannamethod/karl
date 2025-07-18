@@ -44,7 +44,7 @@ async def _call_openai(messages: list[dict[str, str]]) -> str:
         model=OPENAI_MODEL,
         temperature=0.9,
         messages=messages,
-        max_tokens=120,
+        max_completion_tokens=120,
         timeout=TIMEOUT,
     )
     return resp.choices[0].message.content.strip()
