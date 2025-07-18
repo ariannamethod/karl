@@ -5,6 +5,7 @@ from openai import AsyncOpenAI
 
 class VectorStore:
     def __init__(self):
+        self.embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
         # Initialize Pinecone client
@@ -17,7 +18,7 @@ class VectorStore:
     async def embed_text(self, text: str):
         """Generate embeddings for text using OpenAI."""
         response = await self.client.embeddings.create(
-            model="text-embedding-3-large",
+            model=self.embed_model,
             input=text
         )
         return response.data[0].embedding
