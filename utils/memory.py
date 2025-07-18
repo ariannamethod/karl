@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from .vectorstore import BaseVectorStore, create_vector_store
@@ -23,7 +23,7 @@ class MemoryManager:
 
     async def save(self, user_id: str, query: str, response: str):
         """Save user query and response to memory database."""
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
         self.db.execute(
             "INSERT INTO memory VALUES (?,?,?,?)",
             (user_id, ts, query, response)

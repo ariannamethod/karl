@@ -3,7 +3,7 @@ import json
 import asyncio
 import random
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.utils.chat_action import ChatActionSender
@@ -237,7 +237,7 @@ async def delayed_followup(chat_id: int, user_id: str, original: str, private: b
         text = await assemble_final_reply(original, draft)
 
         # Save to journal
-        save_note({"time": datetime.utcnow().isoformat(), "user": user_id, "followup": text})
+        save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "followup": text})
 
         # Send response in chunks
         for chunk in split_message(text):
@@ -260,7 +260,7 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
         text = await assemble_final_reply(original, draft)
 
         # Save to journal
-        entry = {"time": datetime.utcnow().isoformat(), "user": user_id, "afterthought": text}
+        entry = {"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "afterthought": text}
         save_note(entry)
 
         # Send response in chunks
@@ -301,7 +301,7 @@ async def handle_message(m: types.Message):
 
         # 3) Save to memory and notes
         await memory.save(user_id, text, reply)
-        save_note({"time": datetime.utcnow().isoformat(), "user": user_id, "query": text, "response": reply})
+        save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
 
         # 4) Send response
         for chunk in split_message(reply):
