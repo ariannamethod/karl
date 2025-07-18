@@ -354,7 +354,13 @@ if __name__ == "__main__":
         # Polling mode (for local development)
         async def start_polling():
             await setup_assistant()
-            await bot.delete_webhook()  # Delete any existing webhook
+            # Remove webhook and drop pending updates to avoid polling conflicts
+            await bot.delete_webhook(drop_pending_updates=True)
+            # Flush any previous getUpdates session
+            try:
+                await bot.get_updates(offset=-1)
+            except Exception:
+                pass
             await dp.start_polling(bot)
         
         asyncio.run(start_polling())
