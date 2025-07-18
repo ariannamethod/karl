@@ -1,9 +1,13 @@
 import sqlite3
 from datetime import datetime
+from typing import Optional
+
+from .vectorstore import VectorStore
 
 class MemoryManager:
-    def __init__(self, db_path="memory.db"):
+    def __init__(self, db_path: str = "memory.db", vectorstore: Optional[VectorStore] = None):
         self.db = sqlite3.connect(db_path, check_same_thread=False)
+        self.vectorstore = vectorstore
         self._init_db()
 
     def _init_db(self):
@@ -25,6 +29,11 @@ class MemoryManager:
             (user_id, ts, query, response)
         )
         self.db.commit()
+        if self.vectorstore:
+            try:
+                await self.vectorstore.store(f"{user_id}-{ts}", f"Q: {query}\nA: {response}")
+            except Exception:
+                pass
 
     async def retrieve(self, user_id: str, query: str) -> str:
         """Retrieve last 5 responses for a given user as context."""
@@ -37,3 +46,12 @@ class MemoryManager:
             return ""
         # склеиваем последние 5 ответов как контекст
         return "\n".join(r[0] for r in rows)
+
+    async def search_memory(self, query: str, top_k: int = 5) -> list[str]:
+        """Search vector memory for similar texts."""
+        if not self.vectorstore:
+            return []
+        try:
+            return await self.vectorstore.search(query, top_k)
+        except Exception:
+            return []
