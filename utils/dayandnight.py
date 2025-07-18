@@ -1,11 +1,11 @@
-import os
 import asyncio
 from datetime import datetime, timezone
 from openai import AsyncOpenAI
-from .vectorstore import VectorStore
+from .vectorstore import create_vector_store
+from .config import settings
 
-vector_store = VectorStore()
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+vector_store = create_vector_store()
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
 
 async def _fetch_last_day():
     """Return the date string of the last daily log if present."""
@@ -19,11 +19,11 @@ async def _fetch_last_day():
     return None
 
 async def _store_last_day(date: str, text: str):
-    vector = await vector_store.embed_text(text)
-    vector_store.index.upsert([
-        (f"daily-{date}", vector, {"date": date, "text": text}),
-        ("last-daily", vector, {"date": date})
-    ])
+    try:
+        await vector_store.store(f"daily-{date}", text)
+        await vector_store.store("last-daily", text)
+    except Exception:
+        pass
 
 async def default_reflection() -> str:
     """Generate a short daily reflection via OpenAI."""
@@ -31,11 +31,13 @@ async def default_reflection() -> str:
         "Summarise today's experiences in a couple of sentences and add your own "
         "thoughts about the day. Mention no personal user data."
     )
-    resp = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return resp.choices[0].message.content.strip()
+    if client:
+        resp = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.choices[0].message.content.strip()
+    return "Today was uneventful, but the lighthouse kept shining."
 
 async def ensure_daily_entry(reflection_fn=default_reflection):
     """Create a daily log entry in Pinecone if one hasn't been stored today."""

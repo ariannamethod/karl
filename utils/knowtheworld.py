@@ -1,6 +1,5 @@
 """Background task that immerses Indiana in daily world news."""
 
-import os
 import random
 import asyncio
 from datetime import datetime, timezone
@@ -8,13 +7,14 @@ from datetime import datetime, timezone
 import httpx
 from openai import AsyncOpenAI
 
-from .vectorstore import VectorStore
+from .vectorstore import create_vector_store
 from .memory import MemoryManager
+from .config import settings
 
 
-vector_store = VectorStore()
+vector_store = create_vector_store()
 memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
 
 
 async def _location() -> str:
@@ -47,11 +47,11 @@ async def _fetch_recent_messages(limit: int = 10) -> str:
 
 async def _store_insight(text: str):
     """Store generated insight in Pinecone with tag #knowtheworld."""
-    vector = await vector_store.embed_text(text)
-    now = datetime.now(timezone.utc).isoformat()
-    vector_store.index.upsert(
-        [(f"know-{now}", vector, {"date": now, "tag": "#knowtheworld", "text": text})]
-    )
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        await vector_store.store(f"know-{now}", text)
+    except Exception:
+        pass
 
 
 async def _gather_news() -> str:
@@ -62,11 +62,13 @@ async def _gather_news() -> str:
         f"{loc}. Then add short summaries from Paris, Berlin, New York, Moscow, "
         "Amsterdam and other global headlines."
     )
-    resp = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return resp.choices[0].message.content.strip()
+    if client:
+        resp = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.choices[0].message.content.strip()
+    return "No news available while offline."
 
 
 async def _analyse_and_store(news: str):
@@ -79,12 +81,13 @@ async def _analyse_and_store(news: str):
         "leading to a paradoxical conclusion and reveal what is hidden.\n" +
         context
     )
-    resp = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-    )
-    insight = resp.choices[0].message.content.strip()
-    await _store_insight(insight)
+    if client:
+        resp = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        insight = resp.choices[0].message.content.strip()
+        await _store_insight(insight)
 
 
 async def know_the_world():
@@ -104,4 +107,3 @@ async def start_world_task():
         except Exception:
             pass
         await asyncio.sleep(86400 - delay)
-
