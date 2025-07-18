@@ -18,6 +18,7 @@ from utils.vectorstore import create_vector_store
 from utils.config import settings
 from utils import dayandnight
 from utils import knowtheworld
+from utils.genesis2 import assemble_final_reply
 from langdetect import detect, DetectorFactory
 
 # Настройка логгера
@@ -232,7 +233,8 @@ async def delayed_followup(chat_id: int, user_id: str, original: str, private: b
 
         # Process with assistant instead of Sonar
         lang = get_user_language(user_id, original)
-        text = await process_with_assistant(prompt, context, lang)
+        draft = await process_with_assistant(prompt, context, lang)
+        text = await assemble_final_reply(original, draft)
 
         # Save to journal
         save_note({"time": datetime.utcnow().isoformat(), "user": user_id, "followup": text})
@@ -254,7 +256,8 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
 
         # Process with assistant instead of Sonar
         lang = get_user_language(user_id, original)
-        text = await process_with_assistant(prompt, ARTIFACTS_TEXT + "\n" + context, lang)
+        draft = await process_with_assistant(prompt, ARTIFACTS_TEXT + "\n" + context, lang)
+        text = await assemble_final_reply(original, draft)
 
         # Save to journal
         entry = {"time": datetime.utcnow().isoformat(), "user": user_id, "afterthought": text}
@@ -293,7 +296,8 @@ async def handle_message(m: types.Message):
 
         # 2) Process with Assistant API instead of Perplexity
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
-            reply = await process_with_assistant(text, system_ctx, lang)
+            draft = await process_with_assistant(text, system_ctx, lang)
+            reply = await assemble_final_reply(text, draft)
 
         # 3) Save to memory and notes
         await memory.save(user_id, text, reply)
