@@ -3,3 +3,4 @@ openai>=1.6
 python-dotenv
 httpx
 pinecone
+langdetect
