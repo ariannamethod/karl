@@ -1,6 +1,6 @@
 import random
 import textwrap
-from datetime import datetime
+from datetime import datetime, timezone
 
 from openai import AsyncOpenAI
 
@@ -55,7 +55,7 @@ async def genesis2_filter(user_prompt: str, draft_reply: str) -> str:
         twist = await _call_openai(_build_prompt(draft_reply, user_prompt))
         return twist
     except Exception as e:
-        print(f"[Genesis-2] GPT fail {e}  @ {datetime.utcnow().isoformat()}")
+        print(f"[Genesis-2] GPT fail {e}  @ {datetime.now(timezone.utc).isoformat()}")
         return ""
 
 
