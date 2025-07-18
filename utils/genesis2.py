@@ -6,7 +6,7 @@ from openai import AsyncOpenAI
 
 from .config import settings
 
-OPENAI_MODEL = "gpt-4o"
+OPENAI_MODEL = "gpt-o3"
 TIMEOUT = 25
 
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
