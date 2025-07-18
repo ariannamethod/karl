@@ -16,6 +16,8 @@ from utils.memory import MemoryManager
 from utils.tools import split_message
 from utils.vectorstore import VectorStore
 from utils import dayandnight
+from utils import knowtheworld
+from langdetect import detect, DetectorFactory
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -55,6 +57,20 @@ ASSISTANT_ID = None
 vector_store = VectorStore()
 memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 AFTERTHOUGHT_CHANCE = 0.1
+DetectorFactory.seed = 0
+USER_LANGS: dict[str, str] = {}
+
+
+def get_user_language(user_id: str, text: str) -> str:
+    """Detect and store the user's language."""
+    lang = USER_LANGS.get(user_id)
+    if not lang:
+        try:
+            lang = detect(text)
+        except Exception:
+            lang = "en"
+        USER_LANGS[user_id] = lang
+    return lang
 
 def load_artifacts() -> str:
     """Concatenate all text files from artefacts directory."""
@@ -144,13 +160,13 @@ async def setup_assistant():
         json.dump(data, f)
 
 # --- OpenAI Assistant API integration ---
-async def process_with_assistant(prompt: str, context: str = "") -> str:
+async def process_with_assistant(prompt: str, context: str = "", language: str = "en") -> str:
     """Process message using OpenAI Assistant API."""
     try:
         thread = await client.beta.threads.create()
         
-        # Format prompt with context
-        full_prompt = f"{context}\n\nInput: {prompt}"
+        # Format prompt with context and language instruction
+        full_prompt = f"{context}\n\nInput: {prompt}\nRespond in {language}."
         
         # Add user message to thread
         await client.beta.threads.messages.create(
@@ -202,7 +218,8 @@ async def delayed_followup(chat_id: int, user_id: str, original: str, private: b
         context = await memory.retrieve(user_id, original)
         
         # Process with assistant instead of Sonar
-        text = await process_with_assistant(prompt, context)
+        lang = get_user_language(user_id, original)
+        text = await process_with_assistant(prompt, context, lang)
         
         # Save to journal
         save_note({"time": datetime.utcnow().isoformat(), "user": user_id, "followup": text})
@@ -223,7 +240,8 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
         context = await memory.retrieve(user_id, original)
         
         # Process with assistant instead of Sonar
-        text = await process_with_assistant(prompt, ARTIFACTS_TEXT + "\n" + context)
+        lang = get_user_language(user_id, original)
+        text = await process_with_assistant(prompt, ARTIFACTS_TEXT + "\n" + context, lang)
         
         # Save to journal
         entry = {"time": datetime.utcnow().isoformat(), "user": user_id, "afterthought": text}
@@ -258,10 +276,11 @@ async def handle_message(m: types.Message):
         mem_ctx = await memory.retrieve(user_id, text)
         vector_ctx = "\n".join(await memory.search_memory(text))
         system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx + "\n" + vector_ctx
+        lang = get_user_language(user_id, text)
 
         # 2) Process with Assistant API instead of Perplexity
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
-            reply = await process_with_assistant(text, system_ctx)
+            reply = await process_with_assistant(text, system_ctx, lang)
 
         # 3) Save to memory and notes
         await memory.save(user_id, text, reply)
@@ -288,6 +307,7 @@ async def on_startup(app):
     await setup_assistant()
     await dayandnight.init_vector_memory()
     asyncio.create_task(dayandnight.start_daily_task())
+    asyncio.create_task(knowtheworld.start_world_task())
     
     # Set webhook
     webhook_info = await bot.get_webhook_info()
