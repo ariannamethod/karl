@@ -45,7 +45,7 @@ class RemoteVectorStore(BaseVectorStore):
         vector = await self.embed_text(text)
         for attempt in range(3):
             try:
-                self.index.upsert([(id, vector, {"text": text})])
+                self.index.upsert(vectors=[(id, vector, {"text": text})])
                 return
             except Exception as e:
                 logger.error("Pinecone upsert attempt %s failed: %s", attempt + 1, e)
@@ -57,7 +57,7 @@ class RemoteVectorStore(BaseVectorStore):
         query_vector = await self.embed_text(query)
         for attempt in range(3):
             try:
-                results = self.index.query(query_vector, top_k=top_k, include_metadata=True)
+                results = self.index.query(vector=query_vector, top_k=top_k, include_metadata=True)
                 return [m["metadata"]["text"] for m in results["matches"]]
             except Exception as e:
                 logger.error("Pinecone query attempt %s failed: %s", attempt + 1, e)
