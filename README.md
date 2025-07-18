@@ -121,7 +121,7 @@ Indiana cites and cross-links papers on **Dynamic Neural Field Theory** (Atasoy 
 git clone https://github.com/ariannamethod/Indiana-AM.git
 cd Indiana-AM
 cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY, PERPLEXITY_API_KEY …
-# also set AGENT_GROUP_ID, GROUP_CHAT and CREATOR_CHAT
+# also set AGENT_GROUP_ID, GROUP_CHAT, CREATOR_CHAT and PINECONE_API_KEY
 # `.env` will be loaded automatically on startup
 # After the first run assistant IDs will be stored in `assistants.json`.
 # If the saved assistant is missing it will be recreated and the file updated.
