@@ -6,7 +6,11 @@ from openai import AsyncOpenAI
 
 from .config import settings
 
-OPENAI_MODEL = "gpt-o3"
+# Genesis2 previously referenced a non-existent model name.  The
+# correct OpenAI model identifier is simply "o3" as per the public
+# documentation.  Using the wrong name resulted in model_not_found
+# errors during runtime.
+OPENAI_MODEL = "o3"
 TIMEOUT = 25
 
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
