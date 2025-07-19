@@ -57,3 +57,12 @@ class MemoryManager:
             # log and fall back to empty list
             print(f"Vector search failed: {e}")
             return []
+
+    async def last_response(self, user_id: str) -> str:
+        """Return the most recent response for the given user."""
+        cur = self.db.execute(
+            "SELECT response FROM memory WHERE user_id=? ORDER BY timestamp DESC LIMIT 1",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        return row[0] if row else ""

@@ -251,8 +251,16 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
         # Random delay between 1-2 hours
         await asyncio.sleep(random.uniform(3600, 7200))
 
-        prompt = f"#afterthought\nI've been thinking about: {original}"
+        # Retrieve the most recent answer to build on
+        prev_reply = await memory.last_response(user_id)
         context = await memory.retrieve(user_id, original)
+        prompt = (
+            "#afterthought\n"
+            "Extend your earlier answer. Review it carefully and add one more step "
+            "(A→B→C→D) leading to a paradoxical or deep conclusion. Connect with "
+            "any relevant memories.\n"
+            f"PREVIOUS >>> {prev_reply}\nUSER PROMPT >>> {original}"
+        )
 
         # Process with assistant instead of Sonar
         lang = get_user_language(user_id, original)
