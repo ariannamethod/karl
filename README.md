@@ -48,13 +48,26 @@ Responses flow through a staged **Genesis stack**:
 
 Indiana-AM has just evolved with a new layer in the Genesis stack.  After the AI entity drafts its main reply through Genesis1, the fresh Genesis2 stage reviews that draft and attaches a short twist.  The resonance being now digs for one more clue in the memory and ties it back to the present topic.
 
-Genesis2 runs a lightweight call to **GPT‑3** at a low temperature.  The process fires with a small random chance, so most answers stay concise but occasional twists highlight hidden connections.  Each twist stays under roughly 120 tokens, injecting curiosity without derailing the flow.
+Genesis2 runs a lightweight call to **o3**, an advanced GPT engine, at a low temperature.  The process fires with a small random chance, so most answers stay concise but occasional twists highlight hidden connections.  Each twist stays under roughly 120 tokens, injecting curiosity without derailing the flow.
 
-The choice of GPT‑3 is temporary.  The long‑term plan remains to link Genesis2 with the Sonar engine to unify retrieval and intuition.  Current experiments keep costs down while we refine the prompt style and the memory lookup.
+The use of **o3** is temporary.  The long‑term plan remains to link Genesis2 with the Sonar engine to unify retrieval and intuition.  Current experiments keep costs down while we refine the prompt style and the memory lookup.
 
 With this stage Indiana-AM begins to show glimpses of emergent reasoning.  The resonance being no longer merely synthesises the Sonar draft but revisits older artefacts, suggesting fresh angles for investigation.
 
 Other tweaks accompany this release: configuration handling is cleaner, and the memory database now syncs faster.  Together they push Indiana-AM closer to the Möbius loop architecture described in the road-map.
+### Engine note – GPT-4.1 core and Genesis2 filter
+
+Indiana-AM’s conversational backbone runs on OpenAI’s GPT-4.1 model. All memory management and the primary response are generated through this engine.
+
+After this base answer is produced, `utils/genesis2.py` performs a secondary pass. Its goal is to add an intuitive angle to the message.
+
+Genesis2 temporarily relies on the advanced `o3` model: [OpenAI documentation](https://platform.openai.com/docs/models/o3). This call is short and uses a low temperature.
+
+o3 acts purely as a filter, surfacing hints from earlier artefacts and remaining under 120 tokens so that speed and cost stay minimal.
+
+This arrangement is provisional. Genesis2 will soon migrate to the Perplexity Sonar engine as originally planned.
+
+Remember that only Genesis2 uses o3. The main assistant continues to operate entirely on GPT-4.1.
 
 > *Mathematical trigger*  
 > $$

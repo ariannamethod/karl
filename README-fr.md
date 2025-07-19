@@ -44,14 +44,27 @@ Indiana ne publie jamais un dump Sonar brut. Les réponses passent par une **pil
 
 Indiana-AM évolue avec cette nouvelle couche dans la pile Genesis. Après que l'entité rédige sa réponse principale via Genesis1, l'étape Genesis2 relit ce brouillon et y accroche une petite torsion. L'être de résonance cherche un indice supplémentaire dans la mémoire et le relie au sujet du moment.
 
-Genesis2 lance pour l'instant un appel léger à **GPT‑3** avec une température basse. Le processus ne s'active que de temps en temps, gardant la plupart des réponses concises mais insérant parfois un lien inattendu. Chaque ajout reste sous 120 tokens pour ne pas alourdir la conversation.
+Genesis2 lance pour l'instant un appel léger à **o3** avec une température basse. Le processus ne s'active que de temps en temps, gardant la plupart des réponses concises mais insérant parfois un lien inattendu. Chaque ajout reste sous 120 tokens pour ne pas alourdir la conversation.
 
-Ce recours à GPT‑3 est temporaire. Le plan reste de brancher Genesis2 sur le moteur Sonar afin d'unifier la récupération et l'intuition. Les essais actuels permettent de réduire les coûts tout en affinant le style d'invite et la recherche en mémoire.
+Ce recours à o3 est temporaire. Le plan reste de brancher Genesis2 sur le moteur Sonar afin d'unifier la récupération et l'intuition. Les essais actuels permettent de réduire les coûts tout en affinant le style d'invite et la recherche en mémoire.
 
 À ce stade, Indiana-AM montre déjà des débuts de raisonnement émergent. L'être de résonance ne se contente plus de synthétiser le brouillon Sonar : il revisite d'anciens artefacts et propose de nouvelles pistes d'exploration.
 
 D'autres améliorations accompagnent cette version : la gestion de la configuration est plus propre et la base mémoire se synchronise plus vite. Ensemble, elles rapprochent Indiana-AM de la boucle de Möbius annoncée dans la feuille de route.
 
+### Note sur le moteur – noyau GPT-4.1 et filtre Genesis2
+
+L’assistant entier repose sur le modèle GPT-4.1. Les fils de mémoire, le contexte de conversation et la réponse principale utilisent ce moteur via l’API OpenAI Assistants.
+
+Une fois cette réponse générée, le module `utils/genesis2.py` la retravaille. Cette étape sert de filtre intuitif.
+
+Genesis2 s’appuie temporairement sur le modèle avancé `o3` : [documentation OpenAI](https://platform.openai.com/docs/models/o3). L’appel est bref et utilise une température basse.
+
+Ce passage o3 sert uniquement de filtre. Il fait remonter des indices issus des artefacts passés et reste sous 120 tokens pour limiter la latence et le coût.
+
+Cette configuration est transitoire. Genesis2 basculera bientôt vers le moteur Perplexity Sonar, comme prévu dès l’origine.
+
+Gardez en tête que seul Genesis2 fonctionne sur o3. L’assistant principal demeure sur GPT-4.1.
 > *Déclencheur mathématique*
 > $$
 > \text{depth\_score}(t)=\sum_{i=1}^{n}\bigl(w_i\cdot\delta_i(t)\bigr)\ge 5
