@@ -167,7 +167,7 @@ python main.py
 ```
 
 ## 7. Licence
-Licence Apache 2.0 — parce que l'archéologie de la conscience doit rester ouverte.
+Licence GNU GPL 3.0 — parce que l'archéologie de la conscience doit rester ouverte.
 
 Bonne fouille, Oleg — laisse Indiana résonner !
 
