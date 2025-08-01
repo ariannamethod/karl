@@ -170,7 +170,7 @@ python main.py
 ```
 
 ## 7. License  
-Apache License 2.0 — because archaeology of consciousness should stay open.
+GNU General Public License 3.0 — because archaeology of consciousness should stay open.
 
 Happy digging, Oleg — let Indiana resonate!
 
