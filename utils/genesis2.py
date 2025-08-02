@@ -7,7 +7,7 @@ import asyncio
 from .config import settings  # settings.PPLX_API_KEY должен быть определён
 
 # Самая универсальная рабочая модель на сегодня:
-PPLX_MODEL = "sonar-large-online"
+PPLX_MODEL = "sonar-pro"
 PPLX_API_URL = "https://api.perplexity.ai/chat/completions"
 TIMEOUT = 25
 
