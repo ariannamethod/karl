@@ -297,7 +297,11 @@ async def handle_message(m: types.Message):
         await asyncio.sleep(random.uniform(10, 40) if private else random.uniform(120, 360))
 
         # 1) Load context from memory and artifacts
-        mem_ctx = await memory.retrieve(user_id, text)
+        quote_ctx = await memory.retrieve_context_around(user_id, text)
+        if quote_ctx:
+            mem_ctx = quote_ctx
+        else:
+            mem_ctx = await memory.retrieve(user_id, text)
         vector_ctx = "\n".join(await memory.search_memory(user_id, text))
         system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx + "\n" + vector_ctx
         lang = get_user_language(user_id, text)
@@ -331,6 +335,7 @@ async def on_startup(app):
     """Setup webhook on startup."""
     await setup_assistant()
     await dayandnight.init_vector_memory()
+    await memory.check_vector_continuity()
     asyncio.create_task(dayandnight.start_daily_task())
     asyncio.create_task(knowtheworld.start_world_task())
 

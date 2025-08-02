@@ -70,3 +70,33 @@ class MemoryManager:
         )
         row = cur.fetchone()
         return row[0] if row else ""
+
+    async def retrieve_context_around(self, user_id: str, snippet: str, radius: int = 5) -> str:
+        """Return ``2*radius+1`` responses surrounding the one matching ``snippet``."""
+        cur = self.db.execute(
+            "SELECT rowid FROM memory WHERE user_id=? AND response LIKE ? ORDER BY timestamp DESC LIMIT 1",
+            (user_id, f"%{snippet}%"),
+        )
+        row = cur.fetchone()
+        if not row:
+            return ""
+        rowid = row[0]
+        start = max(1, rowid - radius)
+        end = rowid + radius
+        cur = self.db.execute(
+            "SELECT response FROM memory WHERE user_id=? AND rowid BETWEEN ? AND ? ORDER BY rowid",
+            (user_id, start, end),
+        )
+        rows = cur.fetchall()
+        return "\n".join(r[0] for r in rows)
+
+    async def check_vector_continuity(self):
+        """Ensure the vector store is reachable."""
+        if not self.vectorstore:
+            print("Vector store not configured")
+            return
+        try:
+            await self.vectorstore.search("ping", top_k=1)
+            print("Vector memory reachable")
+        except Exception as e:
+            print(f"Vector memory check failed: {e}")
