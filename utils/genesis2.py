@@ -71,4 +71,3 @@ async def assemble_final_reply(user_prompt: str, indiana_draft: str) -> str:
     if twist:
         return f"{indiana_draft}\n\n🜂 Investigative Twist → {twist}"
     return indiana_draft
-

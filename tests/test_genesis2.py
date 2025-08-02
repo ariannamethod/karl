@@ -5,7 +5,7 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from utils import genesis2
+from utils import genesis2  # noqa: E402
 
 
 def test_build_prompt():
