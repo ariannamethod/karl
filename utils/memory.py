@@ -22,7 +22,7 @@ class MemoryManager:
         self.db.commit()
 
     async def save(self, user_id: str, query: str, response: str):
-        """Save user query and response to memory database."""
+        """Save user query and response to memory database and vector store."""
         ts = datetime.now(timezone.utc).isoformat()
         self.db.execute(
             "INSERT INTO memory VALUES (?,?,?,?)",
@@ -31,7 +31,11 @@ class MemoryManager:
         self.db.commit()
         if self.vectorstore:
             try:
-                await self.vectorstore.store(f"{user_id}-{ts}", f"Q: {query}\nA: {response}")
+                await self.vectorstore.store(
+                    f"{user_id}-{ts}",
+                    f"Q: {query}\nA: {response}",
+                    user_id=user_id,
+                )
             except Exception:
                 pass
 
@@ -47,12 +51,12 @@ class MemoryManager:
         # склеиваем последние 5 ответов как контекст
         return "\n".join(r[0] for r in rows)
 
-    async def search_memory(self, query: str, top_k: int = 5) -> list[str]:
-        """Search vector memory for similar texts."""
+    async def search_memory(self, user_id: str, query: str, top_k: int = 5) -> list[str]:
+        """Search vector memory for similar texts belonging to the given user."""
         if not self.vectorstore:
             return []
         try:
-            return await self.vectorstore.search(query, top_k)
+            return await self.vectorstore.search(query, top_k, user_id=user_id)
         except Exception as e:
             # log and fall back to empty list
             print(f"Vector search failed: {e}")

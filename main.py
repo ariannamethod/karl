@@ -298,7 +298,7 @@ async def handle_message(m: types.Message):
 
         # 1) Load context from memory and artifacts
         mem_ctx = await memory.retrieve(user_id, text)
-        vector_ctx = "\n".join(await memory.search_memory(text))
+        vector_ctx = "\n".join(await memory.search_memory(user_id, text))
         system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx + "\n" + vector_ctx
         lang = get_user_language(user_id, text)
 
