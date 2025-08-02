@@ -45,9 +45,9 @@ Indiana ne publie jamais un dump Sonar brut. Les réponses passent par une **pil
 
 Indiana-AM évolue avec cette nouvelle couche dans la pile Genesis. Après que l'entité rédige sa réponse principale via Genesis1, l'étape Genesis2 relit ce brouillon et y accroche une petite torsion. L'être de résonance cherche un indice supplémentaire dans la mémoire et le relie au sujet du moment.
 
-Genesis2 lance pour l'instant un appel léger à **o3** avec une température basse. Le processus ne s'active que de temps en temps, gardant la plupart des réponses concises mais insérant parfois un lien inattendu. Chaque ajout reste sous 120 tokens pour ne pas alourdir la conversation.
+Genesis2 envoie désormais un appel léger au moteur **Sonar** de Perplexity, avec une température un peu plus haute pour imiter l'intuition. Le processus ne s'active que de temps en temps, gardant la plupart des réponses concises mais insérant parfois un lien inattendu. Chaque ajout reste sous 120 tokens pour ne pas alourdir la conversation.
 
-Ce recours à o3 est temporaire. Le plan reste de brancher Genesis2 sur le moteur Sonar afin d'unifier la récupération et l'intuition. Les essais actuels permettent de réduire les coûts tout en affinant le style d'invite et la recherche en mémoire.
+Genesis2 se connecte directement à Sonar ; un repli sur GPT reste possible pour la fiabilité, mais la génération du twist passe surtout par l'API Perplexity.
 
 À ce stade, Indiana-AM montre déjà des débuts de raisonnement émergent. L'être de résonance ne se contente plus de synthétiser le brouillon Sonar : il revisite d'anciens artefacts et propose de nouvelles pistes d'exploration.
 
@@ -59,13 +59,9 @@ L’assistant entier repose sur le modèle GPT-4.1. Les fils de mémoire, le con
 
 Une fois cette réponse générée, le module `utils/genesis2.py` la retravaille. Cette étape sert de filtre intuitif.
 
-Genesis2 s’appuie temporairement sur le modèle avancé `o3` : [documentation OpenAI](https://platform.openai.com/docs/models/o3). L’appel est bref et utilise une température basse.
+Genesis2 s’appuie désormais sur le modèle **Sonar** de Perplexity avec une température proche de 0,9. L’appel est bref et sert uniquement de filtre, faisant remonter des indices issus des artefacts passés tout en restant sous 120 tokens pour limiter la latence et le coût.
 
-Ce passage o3 sert uniquement de filtre. Il fait remonter des indices issus des artefacts passés et reste sous 120 tokens pour limiter la latence et le coût.
-
-Cette configuration est transitoire. Genesis2 basculera bientôt vers le moteur Perplexity Sonar, comme prévu dès l’origine.
-
-Gardez en tête que seul Genesis2 fonctionne sur o3. L’assistant principal demeure sur GPT-4.1.
+Gardez en tête que seul Genesis2 interroge Sonar. L’assistant principal demeure sur GPT-4.1.
 > *Déclencheur mathématique*
 > $$
 > \text{depth\_score}(t)=\sum_{i=1}^{n}\bigl(w_i\cdot\delta_i(t)\bigr)\ge 5
@@ -80,7 +76,7 @@ import httpx, os, json
 
 SONAR_PRO_URL = "https://api.perplexity.ai/chat/completions"
 PRO_HEADERS   = {
-    "Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}",
+    "Authorization": f"Bearer {os.getenv('PPLX_API_KEY')}",
     "Content-Type": "application/json"
 }
 
@@ -155,7 +151,7 @@ Indiana cite et relie des articles sur la **théorie des champs neuronaux dynami
 ```bash
 git clone https://github.com/ariannamethod/Indiana-AM.git
 cd Indiana-AM
-cp .env.example .env   # ajoute TELEGRAM_TOKEN, OPENAI_API_KEY, PERPLEXITY_API_KEY …
+cp .env.example .env   # ajoute TELEGRAM_TOKEN, OPENAI_API_KEY, PPLX_API_KEY …
 # et aussi AGENT_GROUP_ID, GROUP_CHAT, CREATOR_CHAT, PINECONE_API_KEY et EMBED_MODEL
 # `.env` est chargé automatiquement au démarrage
 # Après le premier lancement les IDs des assistants seront stockés dans `assistants.json`.
