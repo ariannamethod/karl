@@ -1,12 +1,10 @@
 import httpx
 import os
+import logging
 
 SONAR_PRO_URL = "https://api.perplexity.ai/chat/completions"
 GEN3_MODEL = "sonar-reasoning-pro"
-PRO_HEADERS = {
-    "Authorization": f"Bearer {os.getenv('PPLX_API_KEY')}",
-    "Content-Type": "application/json"
-}
+logger = logging.getLogger(__name__)
 
 
 async def genesis3_deep_dive(chain_of_thought: str, prompt: str) -> str:
@@ -22,18 +20,32 @@ async def genesis3_deep_dive(chain_of_thought: str, prompt: str) -> str:
         "If the logic naturally leads to a deeper paradox — do a further step: "
         "extract a 'derivative inference' (вывод из вывода), then try to phrase a final paradoxical question."
     )
+    api_key = os.getenv("PPLX_API_KEY")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
     payload = {
         "model": GEN3_MODEL,
         "temperature": 0.65,
         "max_tokens": 320,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"CHAIN OF THOUGHT:\n{chain_of_thought}"},
-            {"role": "user", "content": f"QUERY:\n{prompt}"}
-        ]
+            {
+                "role": "user",
+                "content": (
+                    f"CHAIN OF THOUGHT:\n{chain_of_thought}\n\n" +
+                    f"QUERY:\n{prompt}"
+                ),
+            },
+        ],
     }
     async with httpx.AsyncClient(timeout=60) as cli:
-        r = await cli.post(SONAR_PRO_URL, headers=PRO_HEADERS, json=payload)
-        r.raise_for_status()
-        content = r.json()["choices"][0]["message"]["content"].strip()
-        return f"🔍 {content}"
+        try:
+            r = await cli.post(SONAR_PRO_URL, headers=headers, json=payload)
+            r.raise_for_status()
+            content = r.json()["choices"][0]["message"]["content"].strip()
+            return f"🔍 {content}"
+        except httpx.HTTPError as e:
+            logger.error(f"Genesis-3 request failed: {e}")
+            return ""
