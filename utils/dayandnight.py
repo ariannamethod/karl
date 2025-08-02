@@ -20,8 +20,8 @@ async def _fetch_last_day():
 
 async def _store_last_day(date: str, text: str):
     try:
-        await vector_store.store(f"daily-{date}", text)
-        await vector_store.store("last-daily", text)
+        await vector_store.store(f"daily-{date}", text, user_id="daily")
+        await vector_store.store("last-daily", text, user_id="daily")
     except Exception:
         pass
 

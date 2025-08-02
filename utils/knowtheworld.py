@@ -49,7 +49,7 @@ async def _store_insight(text: str):
     """Store generated insight in Pinecone with tag #knowtheworld."""
     try:
         now = datetime.now(timezone.utc).isoformat()
-        await vector_store.store(f"know-{now}", text)
+        await vector_store.store(f"know-{now}", text, user_id="world")
     except Exception:
         pass
 
