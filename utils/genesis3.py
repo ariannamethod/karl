@@ -3,10 +3,13 @@ import os
 
 SONAR_PRO_URL = "https://api.perplexity.ai/chat/completions"
 GEN3_MODEL = "sonar-reasoning-pro"
-PRO_HEADERS = {
-    "Authorization": f"Bearer {os.getenv('PPLX_API_KEY')}",
-    "Content-Type": "application/json"
-}
+
+
+def _headers() -> dict:
+    return {
+        "Authorization": f"Bearer {os.getenv('PPLX_API_KEY')}",
+        "Content-Type": "application/json",
+    }
 
 
 async def genesis3_deep_dive(chain_of_thought: str, prompt: str) -> str:
@@ -28,12 +31,20 @@ async def genesis3_deep_dive(chain_of_thought: str, prompt: str) -> str:
         "max_tokens": 320,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"CHAIN OF THOUGHT:\n{chain_of_thought}"},
-            {"role": "user", "content": f"QUERY:\n{prompt}"}
-        ]
+            {
+                "role": "user",
+                "content": (
+                    f"CHAIN OF THOUGHT:\n{chain_of_thought}\n\nQUERY:\n{prompt}"
+                ),
+            },
+        ],
     }
     async with httpx.AsyncClient(timeout=60) as cli:
-        r = await cli.post(SONAR_PRO_URL, headers=PRO_HEADERS, json=payload)
-        r.raise_for_status()
-        content = r.json()["choices"][0]["message"]["content"].strip()
+        resp = await cli.post(SONAR_PRO_URL, headers=_headers(), json=payload)
+        try:
+            resp.raise_for_status()
+        except Exception:
+            print("[Genesis-3] HTTP error:", resp.text)
+            raise
+        content = resp.json()["choices"][0]["message"]["content"].strip()
         return f"🔍 {content}"
