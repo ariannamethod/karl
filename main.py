@@ -3,7 +3,7 @@ import json
 import asyncio
 import random
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.utils.chat_action import ChatActionSender
@@ -26,7 +26,7 @@ from utils.complexity import (
 )
 from langdetect import detect, DetectorFactory
 from utils.repo_monitor import RepoWatcher
-from utils.voice import text_to_voice
+from utils.voice import text_to_voice, voice_to_text
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -52,6 +52,7 @@ PORT = settings.PORT
 
 ARTIFACTS_DIR = Path("artefacts")
 NOTES_FILE = Path("notes/journal.json")
+VOICE_DIR = Path("voice_messages")
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
@@ -65,6 +66,7 @@ ASSISTANT_ID = None
 vector_store = create_vector_store()
 memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 AFTERTHOUGHT_CHANCE = 0.1
+FOLLOWUP_CHANCE = 0.2
 DetectorFactory.seed = 0
 USER_LANGS: dict[str, str] = {}
 VOICE_USERS: set[str] = set()
@@ -111,13 +113,27 @@ def reload_artifacts() -> None:
 
 repo_watcher = RepoWatcher(paths=[Path('.')], on_change=reload_artifacts)
 
+
+async def cleanup_old_voice_files():
+    """Periodically remove voice files older than 30 days."""
+    while True:
+        try:
+            VOICE_DIR.mkdir(exist_ok=True)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+            for f in VOICE_DIR.glob("*"):
+                if f.is_file() and datetime.fromtimestamp(f.stat().st_mtime, timezone.utc) < cutoff:
+                    f.unlink()
+        except Exception as e:
+            logger.error(f"Voice cleanup error: {e}")
+        await asyncio.sleep(86400)
+
 async def setup_bot_commands() -> None:
     """Configure bot commands for menu button."""
     commands = [
-        types.BotCommand(command="deep", description="Enable deep mode"),
-        types.BotCommand(command="deepoff", description="Disable deep mode"),
-        types.BotCommand(command="voice", description="Enable voice replies"),
-        types.BotCommand(command="voiceoff", description="Disable voice replies"),
+        types.BotCommand(command="deep", description="deep mode"),
+        types.BotCommand(command="deepoff", description="deep off"),
+        types.BotCommand(command="voice", description="voice mode"),
+        types.BotCommand(command="voiceoff", description="mute"),
     ]
     try:
         await bot.set_my_commands(commands)
@@ -256,26 +272,40 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
             await asyncio.sleep(2 ** attempt)
 
 # --- Delayed responses ---
-async def delayed_followup(chat_id: int, user_id: str, original: str, private: bool):
-    """Send a delayed follow-up message."""
+async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original: str, private: bool):
+    """Send a delayed follow-up expanding on the previous answer."""
     try:
-        # Random delay between 10-40s for private chats, 2-6m for groups
         delay = random.uniform(10, 40) if private else random.uniform(120, 360)
         await asyncio.sleep(delay)
 
-        prompt = f"#followup\nRemind me about: {original}"
-        # Include saved memory
-        context = await memory.retrieve(user_id, original)
-
-        # Process with assistant instead of Sonar
-        lang = get_user_language(user_id, original)
+        prompt = (
+            "#followup\n"
+            "Expand on your previous answer without replying to the user again."
+            f"\nPREVIOUS >>> {prev_reply}"
+        )
+        context = await memory.retrieve(user_id, prev_reply)
+        lang = get_user_language(user_id, prev_reply)
         draft = await process_with_assistant(prompt, context, lang)
-        text = await assemble_final_reply(original, draft)
+        deep = ""
+        if settings.PPLX_API_KEY:
+            try:
+                deep = await genesis3_deep_dive(draft, prev_reply)
+            except Exception as e:
+                logger.error(f"[Genesis-3] followup fail {e}")
+        quote = prev_reply if len(prev_reply) <= 500 else prev_reply[:497] + "..."
+        parts = [f"«{quote}»", draft]
+        if deep:
+            parts.append(f"\n\n🜄 Infernal Analysis → {deep}")
+        text = "\n\n".join(parts)
 
-        # Save to journal
+        summary_prompt = (
+            "Summarize the conversation so far in your own words."
+            f"\nUSER SAID: {original}\nYOU SAID: {prev_reply}"
+        )
+        summary = await process_with_assistant(summary_prompt, "", lang)
+        await memory.save(user_id, summary, text)
         save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "followup": text})
 
-        # Send response in chunks
         for chunk in split_message(text):
             await bot.send_message(chat_id, chunk)
     except Exception as e:
@@ -319,7 +349,7 @@ async def enable_deep_mode(m: types.Message):
     """Enable persistent Genesis-3 deep dives."""
     global FORCE_DEEP_DIVE
     FORCE_DEEP_DIVE = True
-    await m.answer("Deep mode enabled")
+    await m.answer("deep mode enabled")
 
 
 @dp.message(F.text == "/deepoff")
@@ -327,29 +357,37 @@ async def disable_deep_mode(m: types.Message):
     """Disable persistent Genesis-3 deep dives."""
     global FORCE_DEEP_DIVE
     FORCE_DEEP_DIVE = False
-    await m.answer("Deep mode disabled")
+    await m.answer("deep mode disabled")
 
 
 @dp.message(F.text == "/voice")
 async def enable_voice(m: types.Message):
     """Enable voice responses for the user."""
     VOICE_USERS.add(str(m.from_user.id))
-    await m.answer("Voice mode enabled")
+    await m.answer("voice mode enabled")
 
 
 @dp.message(F.text == "/voiceoff")
 async def disable_voice(m: types.Message):
     """Disable voice responses for the user."""
     VOICE_USERS.discard(str(m.from_user.id))
-    await m.answer("Voice mode disabled")
+    await m.answer("voice mode disabled")
 
 # --- Message Handler ---
 @dp.message()
 async def handle_message(m: types.Message):
     """Main message handler for the bot."""
     try:
-        # Filter out very short messages
+        # Extract text or transcribe voice
         text = m.text or ""
+        if m.voice and client:
+            file_info = await bot.get_file(m.voice.file_id)
+            VOICE_DIR.mkdir(exist_ok=True)
+            voice_path = VOICE_DIR / f"{file_info.file_unique_id}.ogg"
+            await bot.download_file(file_info.file_path, destination=voice_path)
+            text = await voice_to_text(client, voice_path)
+
+        # Filter out very short messages
         if len(text.strip()) < 4 or ("?" not in text and len(text.split()) <= 2):
             if random.random() < 0.9:
                 return
@@ -394,19 +432,21 @@ async def handle_message(m: types.Message):
         save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
 
         # 4) Send response
-        for chunk in split_message(reply):
-            await m.answer(chunk)
-
-        if user_id in VOICE_USERS and client:
-            try:
-                audio_bytes = await text_to_voice(client, reply)
-                voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
-                await m.answer_voice(voice_file)
-            except Exception as e:
-                logger.error(f"Voice synthesis failed: {e}")
+        for chunk in split_message(reply, max_length=1000):
+            if user_id in VOICE_USERS and client:
+                try:
+                    audio_bytes = await text_to_voice(client, chunk)
+                    voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
+                    await m.answer_voice(voice_file, caption=chunk)
+                except Exception as e:
+                    logger.error(f"Voice synthesis failed: {e}")
+                    await m.answer(chunk)
+            else:
+                await m.answer(chunk)
 
         # 5) Schedule follow-up
-        asyncio.create_task(delayed_followup(chat_id, user_id, text, private))
+        if random.random() < FOLLOWUP_CHANCE:
+            asyncio.create_task(delayed_followup(chat_id, user_id, reply, text, private))
 
         # 6) Randomly schedule afterthought
         if random.random() < AFTERTHOUGHT_CHANCE:
@@ -425,6 +465,7 @@ async def on_startup(app):
     asyncio.create_task(knowtheworld.start_world_task())
     repo_watcher.start()
     await setup_bot_commands()
+    asyncio.create_task(cleanup_old_voice_files())
 
     # Set webhook
     webhook_info = await bot.get_webhook_info()
@@ -476,6 +517,7 @@ if __name__ == "__main__":
             asyncio.create_task(knowtheworld.start_world_task())
             repo_watcher.start()
             await setup_bot_commands()
+            asyncio.create_task(cleanup_old_voice_files())
             # Remove webhook and drop pending updates to avoid polling conflicts
             await bot.delete_webhook(drop_pending_updates=True)
             # Flush any previous getUpdates session
