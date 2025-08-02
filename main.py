@@ -112,10 +112,13 @@ repo_watcher = RepoWatcher(paths=[Path('.')], on_change=reload_artifacts)
 async def setup_bot_commands() -> None:
     """Configure bot commands for menu button."""
     commands = [
-        types.BotCommand(command="deep", description=" "),
-        types.BotCommand(command="deepoff", description=" "),
+        types.BotCommand(command="deep", description="Enable deep mode"),
+        types.BotCommand(command="deepoff", description="Disable deep mode"),
     ]
-    await bot.set_my_commands(commands)
+    try:
+        await bot.set_my_commands(commands)
+    except Exception as e:
+        logger.error(f"Failed to set bot commands: {e}")
 
 def save_note(entry: dict):
     """Save an entry to the journal file."""
