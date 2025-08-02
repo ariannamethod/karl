@@ -25,6 +25,7 @@ from utils.complexity import (
     estimate_complexity_and_entropy,
 )
 from langdetect import detect, DetectorFactory
+from utils.repo_monitor import RepoWatcher
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -94,6 +95,16 @@ def load_artifacts() -> str:
     return "\n".join(texts)
 
 ARTIFACTS_TEXT = load_artifacts()
+
+
+def reload_artifacts() -> None:
+    """Reload artefact texts when repository changes."""
+    global ARTIFACTS_TEXT
+    ARTIFACTS_TEXT = load_artifacts()
+    logger.info("Artifacts reloaded after repository change")
+
+
+repo_watcher = RepoWatcher(paths=[Path('.')], on_change=reload_artifacts)
 
 def save_note(entry: dict):
     """Save an entry to the journal file."""
@@ -356,6 +367,7 @@ async def on_startup(app):
     await dayandnight.init_vector_memory()
     asyncio.create_task(dayandnight.start_daily_task())
     asyncio.create_task(knowtheworld.start_world_task())
+    repo_watcher.start()
 
     # Set webhook
     webhook_info = await bot.get_webhook_info()
@@ -402,6 +414,10 @@ if __name__ == "__main__":
         # Polling mode (for local development)
         async def start_polling():
             await setup_assistant()
+            await dayandnight.init_vector_memory()
+            asyncio.create_task(dayandnight.start_daily_task())
+            asyncio.create_task(knowtheworld.start_world_task())
+            repo_watcher.start()
             # Remove webhook and drop pending updates to avoid polling conflicts
             await bot.delete_webhook(drop_pending_updates=True)
             # Flush any previous getUpdates session
