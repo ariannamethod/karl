@@ -66,7 +66,7 @@ ASSISTANT_ID = None
 vector_store = create_vector_store()
 memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 AFTERTHOUGHT_CHANCE = 0.1
-FOLLOWUP_CHANCE = 0.2
+FOLLOWUP_CHANCE = 0.1
 DetectorFactory.seed = 0
 USER_LANGS: dict[str, str] = {}
 VOICE_USERS: set[str] = set()
@@ -132,7 +132,7 @@ async def setup_bot_commands() -> None:
     commands = [
         types.BotCommand(command="deep", description="deep mode"),
         types.BotCommand(command="deepoff", description="deep off"),
-        types.BotCommand(command="voice", description="voice mode"),
+        types.BotCommand(command="voiceon", description="voice mode"),
         types.BotCommand(command="voiceoff", description="mute"),
     ]
     try:
@@ -360,7 +360,7 @@ async def disable_deep_mode(m: types.Message):
     await m.answer("deep mode disabled")
 
 
-@dp.message(F.text == "/voice")
+@dp.message(F.text.in_({"/voiceon", "/voice"}))
 async def enable_voice(m: types.Message):
     """Enable voice responses for the user."""
     VOICE_USERS.add(str(m.from_user.id))
