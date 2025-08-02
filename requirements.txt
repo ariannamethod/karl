@@ -4,3 +4,5 @@ python-dotenv
 httpx
 pinecone
 langdetect
+pytest
+pytest-asyncio

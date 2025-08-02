@@ -4,9 +4,10 @@ from datetime import datetime, timezone
 import httpx
 import asyncio
 
-from .config import settings  # Там должен быть settings.PPLX_API_KEY
+from .config import settings  # settings.PPLX_API_KEY должен быть определён
 
-PPLX_MODEL = "llama-3.1-sonar-large-128k-online"  # или другой, если нужен
+# Самая универсальная рабочая модель на сегодня:
+PPLX_MODEL = "sonar-large-online"
 PPLX_API_URL = "https://api.perplexity.ai/chat/completions"
 TIMEOUT = 25
 
@@ -36,18 +37,24 @@ async def _call_sonar(messages: list) -> str:
     payload = {
         "model": PPLX_MODEL,
         "messages": messages,
-        "temperature": 0.9,  # можно варьировать для более "интуитивного" тона
+        "temperature": 0.8,  # регулируй, если нужно разнообразие
         "max_tokens": 120,
     }
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
         resp = await client.post(PPLX_API_URL, headers=headers, json=payload)
-        resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
+        try:
+            resp.raise_for_status()
+        except Exception:
+            # Дебаг: показать тело ошибки API
+            print("[Genesis-2] Sonar HTTP error:", resp.text)
+            raise
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
         return content.strip()
 
 
 async def genesis2_sonar_filter(user_prompt: str, draft_reply: str) -> str:
-    # Можно включить срабатывание твиста не всегда
+    # Не всегда срабатывать — для "живости"
     if random.random() < 0.12 or not settings.PPLX_API_KEY:
         return ""
     try:
@@ -64,3 +71,4 @@ async def assemble_final_reply(user_prompt: str, indiana_draft: str) -> str:
     if twist:
         return f"{indiana_draft}\n\n🜂 Investigative Twist → {twist}"
     return indiana_draft
+
