@@ -35,4 +35,5 @@ async def genesis3_deep_dive(chain_of_thought: str, prompt: str) -> str:
     async with httpx.AsyncClient(timeout=60) as cli:
         r = await cli.post(SONAR_PRO_URL, headers=PRO_HEADERS, json=payload)
         r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"].strip()
+        content = r.json()["choices"][0]["message"]["content"].strip()
+        return f"🔍 {content}"
