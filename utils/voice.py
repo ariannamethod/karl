@@ -9,7 +9,7 @@ async def text_to_voice(client: AsyncOpenAI, text: str) -> bytes:
         model="gpt-4o-mini-tts",
         voice="alloy",
         input=text,
-        response_format="ogg",
+        response_format="opus",
     )
     return await response.aread()
 

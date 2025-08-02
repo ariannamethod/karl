@@ -33,10 +33,10 @@ Reasoning requests are sent to Perplexity's API, while long-term memory is store
 
 ### Bot commands
 
-- `/deep` – force Genesis‑3 deep dives
-- `/deepoff` – disable deep mode
-- `/voice` – enable voice replies
-- `/voiceoff` – disable voice replies
+- `/deep` – deep mode
+- `/deepoff` – deep off
+- `/voiceon` – voice mode
+- `/voiceoff` – mute
 
 ## 3. Genesis pipeline
 
