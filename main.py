@@ -18,7 +18,12 @@ from utils.vectorstore import create_vector_store
 from utils.config import settings
 from utils import dayandnight
 from utils import knowtheworld
-from utils.genesis2 import assemble_final_reply
+from utils.genesis2 import assemble_final_reply, genesis2_sonar_filter
+from utils.genesis3 import genesis3_deep_dive
+from utils.complexity import (
+    ThoughtComplexityLogger,
+    estimate_complexity_and_entropy,
+)
 from langdetect import detect, DetectorFactory
 
 # Настройка логгера
@@ -60,6 +65,8 @@ memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 AFTERTHOUGHT_CHANCE = 0.1
 DetectorFactory.seed = 0
 USER_LANGS: dict[str, str] = {}
+
+complexity_logger = ThoughtComplexityLogger()
 
 
 def get_user_language(user_id: str, text: str) -> str:
@@ -292,6 +299,9 @@ async def handle_message(m: types.Message):
         chat_id = m.chat.id
         private = m.chat.type == "private"
 
+        complexity, entropy = estimate_complexity_and_entropy(text)
+        complexity_logger.log_turn(text, complexity, entropy)
+
         # Delay responses to simulate thoughtfulness
         # 10-40s for private chats, 2-6m for groups
         await asyncio.sleep(random.uniform(10, 40) if private else random.uniform(120, 360))
@@ -302,10 +312,23 @@ async def handle_message(m: types.Message):
         system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx + "\n" + vector_ctx
         lang = get_user_language(user_id, text)
 
-        # 2) Process with Assistant API instead of Perplexity
+        # 2) Process with Assistant API and apply reasoning filters
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
             draft = await process_with_assistant(text, system_ctx, lang)
-            reply = await assemble_final_reply(text, draft)
+            twist = await genesis2_sonar_filter(text, draft)
+            deep_dive = ""
+            if complexity == 3 and settings.PPLX_API_KEY:
+                try:
+                    deep_dive = await genesis3_deep_dive(draft, text)
+                except Exception as e:
+                    logger.error(f"[Genesis-3] fail {e}")
+
+            parts = [draft]
+            if twist:
+                parts.append(f"\n\n🜂 Investigative Twist → {twist}")
+            if deep_dive:
+                parts.append(f"\n\n🜄 Infernal Analysis → {deep_dive}")
+            reply = "".join(parts)
 
         # 3) Save to memory and notes
         await memory.save(user_id, text, reply)
