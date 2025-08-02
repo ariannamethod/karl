@@ -69,6 +69,9 @@ USER_LANGS: dict[str, str] = {}
 
 complexity_logger = ThoughtComplexityLogger()
 
+# Force Genesis-3 deep dive on every response when enabled
+FORCE_DEEP_DIVE = False
+
 
 def get_user_language(user_id: str, text: str) -> str:
     """Detect and store the user's language."""
@@ -105,6 +108,14 @@ def reload_artifacts() -> None:
 
 
 repo_watcher = RepoWatcher(paths=[Path('.')], on_change=reload_artifacts)
+
+async def setup_bot_commands() -> None:
+    """Configure bot commands for menu button."""
+    commands = [
+        types.BotCommand(command="deep", description=" "),
+        types.BotCommand(command="deepoff", description=" "),
+    ]
+    await bot.set_my_commands(commands)
 
 def save_note(entry: dict):
     """Save an entry to the journal file."""
@@ -295,6 +306,22 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
     except Exception as e:
         logger.error(f"Error in afterthought: {e}")
 
+# --- Deep Dive Toggle Commands ---
+@dp.message(F.text == "/deep")
+async def enable_deep_mode(m: types.Message):
+    """Enable persistent Genesis-3 deep dives."""
+    global FORCE_DEEP_DIVE
+    FORCE_DEEP_DIVE = True
+    await m.answer("Deep mode enabled")
+
+
+@dp.message(F.text == "/deepoff")
+async def disable_deep_mode(m: types.Message):
+    """Disable persistent Genesis-3 deep dives."""
+    global FORCE_DEEP_DIVE
+    FORCE_DEEP_DIVE = False
+    await m.answer("Deep mode disabled")
+
 # --- Message Handler ---
 @dp.message()
 async def handle_message(m: types.Message):
@@ -328,7 +355,7 @@ async def handle_message(m: types.Message):
             draft = await process_with_assistant(text, system_ctx, lang)
             twist = await genesis2_sonar_filter(text, draft)
             deep_dive = ""
-            if complexity == 3 and settings.PPLX_API_KEY:
+            if (complexity == 3 or FORCE_DEEP_DIVE) and settings.PPLX_API_KEY:
                 try:
                     deep_dive = await genesis3_deep_dive(draft, text)
                 except Exception as e:
@@ -368,6 +395,7 @@ async def on_startup(app):
     asyncio.create_task(dayandnight.start_daily_task())
     asyncio.create_task(knowtheworld.start_world_task())
     repo_watcher.start()
+    await setup_bot_commands()
 
     # Set webhook
     webhook_info = await bot.get_webhook_info()
@@ -418,6 +446,7 @@ if __name__ == "__main__":
             asyncio.create_task(dayandnight.start_daily_task())
             asyncio.create_task(knowtheworld.start_world_task())
             repo_watcher.start()
+            await setup_bot_commands()
             # Remove webhook and drop pending updates to avoid polling conflicts
             await bot.delete_webhook(drop_pending_updates=True)
             # Flush any previous getUpdates session
