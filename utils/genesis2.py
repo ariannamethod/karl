@@ -2,7 +2,6 @@ import random
 import textwrap
 from datetime import datetime, timezone
 import httpx
-import asyncio
 
 from .config import settings  # settings.PPLX_API_KEY должен быть определён
 
@@ -17,12 +16,13 @@ headers = {
 }
 
 
-def _build_prompt(draft: str, user_prompt: str) -> list:
+def _build_prompt(draft: str, user_prompt: str, language: str) -> list:
     system_msg = textwrap.dedent(
-        """
+        f"""
         You are GENESIS-2, the intuition filter for Indiana‐AM (“Indiana Jones” archetype).
         Return ONE short investigative twist (≤120 tokens) that deepens the current reasoning.
         Do **NOT** repeat the draft; just add an angle, question or hidden variable.
+        Reply in {language}.
         """
     ).strip()
     return [
@@ -53,12 +53,12 @@ async def _call_sonar(messages: list) -> str:
         return content.strip()
 
 
-async def genesis2_sonar_filter(user_prompt: str, draft_reply: str) -> str:
+async def genesis2_sonar_filter(user_prompt: str, draft_reply: str, language: str) -> str:
     # Не всегда срабатывать — для "живости"
     if random.random() < 0.12 or not settings.PPLX_API_KEY:
         return ""
     try:
-        messages = _build_prompt(draft_reply, user_prompt)
+        messages = _build_prompt(draft_reply, user_prompt, language)
         twist = await _call_sonar(messages)
         return twist
     except Exception as e:
@@ -66,8 +66,8 @@ async def genesis2_sonar_filter(user_prompt: str, draft_reply: str) -> str:
         return ""
 
 
-async def assemble_final_reply(user_prompt: str, indiana_draft: str) -> str:
-    twist = await genesis2_sonar_filter(user_prompt, indiana_draft)
+async def assemble_final_reply(user_prompt: str, indiana_draft: str, language: str) -> str:
+    twist = await genesis2_sonar_filter(user_prompt, indiana_draft, language)
     if twist:
         return f"{indiana_draft}\n\n🜂 Investigative Twist → {twist}"
     return indiana_draft

@@ -1,4 +1,3 @@
-import os
 import json
 import asyncio
 import random
@@ -7,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.utils.chat_action import ChatActionSender
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler
 from aiohttp import web
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
@@ -65,8 +64,9 @@ ASSISTANT_ID = None
 
 vector_store = create_vector_store()
 memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
-AFTERTHOUGHT_CHANCE = 0.1
-FOLLOWUP_CHANCE = 0.1
+# Lower the likelihood of spontaneous additions
+AFTERTHOUGHT_CHANCE = 0.02
+FOLLOWUP_CHANCE = 0.05
 DetectorFactory.seed = 0
 USER_LANGS: dict[str, str] = {}
 VOICE_USERS: set[str] = set()
@@ -287,11 +287,10 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
         lang = get_user_language(user_id, prev_reply)
         draft = await process_with_assistant(prompt, context, lang)
         deep = ""
-        if settings.PPLX_API_KEY:
-            try:
-                deep = await genesis3_deep_dive(draft, prev_reply)
-            except Exception as e:
-                logger.error(f"[Genesis-3] followup fail {e}")
+        try:
+            deep = await genesis3_deep_dive(draft, prev_reply)
+        except Exception as e:
+            logger.error(f"[Genesis-3] followup fail {e}")
         quote = prev_reply if len(prev_reply) <= 500 else prev_reply[:497] + "..."
         parts = [f"«{quote}»", draft]
         if deep:
@@ -331,7 +330,22 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
         # Process with assistant instead of Sonar
         lang = get_user_language(user_id, original)
         draft = await process_with_assistant(prompt, ARTIFACTS_TEXT + "\n" + context, lang)
-        text = await assemble_final_reply(original, draft)
+        text = await assemble_final_reply(original, draft, lang)
+
+        deep = ""
+        try:
+            deep = await genesis3_deep_dive(text, original)
+        except Exception as e:
+            logger.error(f"[Genesis-3] afterthought fail {e}")
+        if deep:
+            text = f"{text}\n\n🜄 Infernal Analysis → {deep}"
+
+        summary_prompt = (
+            "Summarize the conversation so far in your own words."
+            f"\nUSER SAID: {original}\nAFTERTHOUGHT: {text}"
+        )
+        summary = await process_with_assistant(summary_prompt, "", lang)
+        await memory.save(user_id, summary, text)
 
         # Save to journal
         entry = {"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "afterthought": text}
@@ -412,7 +426,7 @@ async def handle_message(m: types.Message):
         # 2) Process with Assistant API and apply reasoning filters
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
             draft = await process_with_assistant(text, system_ctx, lang)
-            twist = await genesis2_sonar_filter(text, draft)
+            twist = await genesis2_sonar_filter(text, draft, lang)
             deep_dive = ""
             if (complexity == 3 or FORCE_DEEP_DIVE) and settings.PPLX_API_KEY:
                 try:
@@ -437,7 +451,8 @@ async def handle_message(m: types.Message):
                 try:
                     audio_bytes = await text_to_voice(client, chunk)
                     voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
-                    await m.answer_voice(voice_file, caption=chunk)
+                    await m.answer_voice(voice_file)
+                    await m.answer(chunk)
                 except Exception as e:
                     logger.error(f"Voice synthesis failed: {e}")
                     await m.answer(chunk)
