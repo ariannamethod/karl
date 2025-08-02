@@ -13,5 +13,6 @@ class Settings:
     AGENT_GROUP: str = os.getenv("AGENT_GROUP_ID", "-1001234567890")
     GROUP_CHAT: str = os.getenv("GROUP_CHAT", "")
     CREATOR_CHAT: str = os.getenv("CREATOR_CHAT", "")
+    PPLX_API_KEY: str = os.getenv("PPLX_API_KEY", os.getenv("PERPLEXITY_API_KEY", ""))
 
 settings = Settings()
