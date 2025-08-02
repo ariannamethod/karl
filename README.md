@@ -31,7 +31,14 @@ Contrast is deliberate: GPT’s broad semantic net + Sonar’s crisp retrieval c
 The current implementation follows **assistants-v2** threads for memory and direct REST calls for Sonar.
 Reasoning requests are sent to Perplexity's API, while long-term memory is stored and queried via OpenAI Assistants.
 
-## 3. Genesis pipeline  
+### Bot commands
+
+- `/deep` – force Genesis‑3 deep dives
+- `/deepoff` – disable deep mode
+- `/voice` – enable voice replies
+- `/voiceoff` – disable voice replies
+
+## 3. Genesis pipeline
 
 Indiana never posts a raw Sonar dump.  
 Responses flow through a staged **Genesis stack**:

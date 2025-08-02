@@ -26,6 +26,7 @@ from utils.complexity import (
 )
 from langdetect import detect, DetectorFactory
 from utils.repo_monitor import RepoWatcher
+from utils.voice import text_to_voice
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -66,6 +67,7 @@ memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 AFTERTHOUGHT_CHANCE = 0.1
 DetectorFactory.seed = 0
 USER_LANGS: dict[str, str] = {}
+VOICE_USERS: set[str] = set()
 
 complexity_logger = ThoughtComplexityLogger()
 
@@ -114,6 +116,8 @@ async def setup_bot_commands() -> None:
     commands = [
         types.BotCommand(command="deep", description="Enable deep mode"),
         types.BotCommand(command="deepoff", description="Disable deep mode"),
+        types.BotCommand(command="voice", description="Enable voice replies"),
+        types.BotCommand(command="voiceoff", description="Disable voice replies"),
     ]
     try:
         await bot.set_my_commands(commands)
@@ -325,6 +329,20 @@ async def disable_deep_mode(m: types.Message):
     FORCE_DEEP_DIVE = False
     await m.answer("Deep mode disabled")
 
+
+@dp.message(F.text == "/voice")
+async def enable_voice(m: types.Message):
+    """Enable voice responses for the user."""
+    VOICE_USERS.add(str(m.from_user.id))
+    await m.answer("Voice mode enabled")
+
+
+@dp.message(F.text == "/voiceoff")
+async def disable_voice(m: types.Message):
+    """Disable voice responses for the user."""
+    VOICE_USERS.discard(str(m.from_user.id))
+    await m.answer("Voice mode disabled")
+
 # --- Message Handler ---
 @dp.message()
 async def handle_message(m: types.Message):
@@ -378,6 +396,14 @@ async def handle_message(m: types.Message):
         # 4) Send response
         for chunk in split_message(reply):
             await m.answer(chunk)
+
+        if user_id in VOICE_USERS and client:
+            try:
+                audio_bytes = await text_to_voice(client, reply)
+                voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
+                await m.answer_voice(voice_file)
+            except Exception as e:
+                logger.error(f"Voice synthesis failed: {e}")
 
         # 5) Schedule follow-up
         asyncio.create_task(delayed_followup(chat_id, user_id, text, private))
