@@ -35,8 +35,10 @@ Reasoning requests are sent to Perplexity's API, while long-term memory is store
 
 - `/deep` – deep mode
 - `/deepoff` – deep off
-- `/voiceon` – voice mode
+- `/voiceon` – voice mode (audio + text replies)
 - `/voiceoff` – mute
+
+In voice mode, Indiana sends back a single audio message using a deeper `alloy` voice and avoids transcribing the user's voice messages.
 
 ## 3. Genesis pipeline
 
