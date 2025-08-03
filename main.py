@@ -408,7 +408,6 @@ async def handle_message(m: types.Message):
             voice_path = VOICE_DIR / f"{file_info.file_unique_id}.ogg"
             await bot.download_file(file_info.file_path, destination=voice_path)
             text = await voice_to_text(client, voice_path)
-            await m.reply(text)
 
         # Filter out very short messages
         if len(text.strip()) < 4 or ("?" not in text and len(text.split()) <= 2):
@@ -455,18 +454,16 @@ async def handle_message(m: types.Message):
         save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
 
         # 4) Send response
-        for chunk in split_message(reply):
-            if user_id in VOICE_USERS and client:
-                try:
-                    audio_bytes = await text_to_voice(client, chunk)
-                    voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
-                    await m.answer_voice(voice_file)
-                    await m.answer(chunk)
-                except Exception as e:
-                    logger.error(f"Voice synthesis failed: {e}")
-                    await m.answer(chunk)
-            else:
-                await m.answer(chunk)
+        chunks = list(split_message(reply))
+        if user_id in VOICE_USERS and client:
+            try:
+                audio_bytes = await text_to_voice(client, reply)
+                voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
+                await m.answer_voice(voice_file)
+            except Exception as e:
+                logger.error(f"Voice synthesis failed: {e}")
+        for chunk in chunks:
+            await m.answer(chunk)
 
         # 5) Schedule follow-up
         if random.random() < FOLLOWUP_CHANCE:
