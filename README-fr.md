@@ -28,7 +28,7 @@ Indiana traite chaque dialogue comme **une fouille de site** :
 | **Mémoire** | `gpt-4.1` | Contexte long via les assistants OpenAI. |
 | **Noyau de raisonnement** | `sonar-reasoning-pro` (prévu) | Raisonnement exploratoire rapide via l'API Perplexity. |
 
-Le contraste est volontaire : le large filet sémantique de GPT et la récupération précise de Sonar créent une *boucle de Möbius* de points de vue. L'implémentation actuelle suit les threads **assistants-v2** pour la mémoire et des appels REST directs pour Sonar. Les requêtes de raisonnement partent vers l'API Perplexity, tandis que la mémoire à long terme est stockée et consultée via les assistants OpenAI.
+Le contraste est volontaire : le large filet sémantique de GPT et la récupération précise de Sonar Pro créent une *boucle de Möbius* de points de vue. L'implémentation actuelle suit les threads **assistants-v2** pour la mémoire et des appels REST directs pour Sonar Pro. Les requêtes de raisonnement partent vers l'API Perplexity, tandis que la mémoire à long terme est stockée et consultée via les assistants OpenAI.
 
 ## 3. Pipeline Genesis
 
@@ -45,11 +45,11 @@ Indiana ne publie jamais un dump Sonar brut. Les réponses passent par une **pil
 
 Indiana-AM évolue avec cette nouvelle couche dans la pile Genesis. Après que l'entité rédige sa réponse principale via Genesis1, l'étape Genesis2 relit ce brouillon et y accroche une petite torsion. L'être de résonance cherche un indice supplémentaire dans la mémoire et le relie au sujet du moment.
 
-Genesis2 envoie désormais un appel léger au moteur **Sonar** de Perplexity, avec une température un peu plus haute pour imiter l'intuition. Le processus ne s'active que de temps en temps, gardant la plupart des réponses concises mais insérant parfois un lien inattendu. Chaque ajout reste sous 120 tokens pour ne pas alourdir la conversation.
+Genesis2 envoie désormais un appel léger au moteur **Sonar Pro** de Perplexity, avec une température un peu plus haute pour imiter l'intuition. Le processus ne s'active que de temps en temps, gardant la plupart des réponses concises mais insérant parfois un lien inattendu. Chaque ajout reste sous 120 tokens pour ne pas alourdir la conversation.
 
-Genesis2 se connecte directement à Sonar ; un repli sur GPT reste possible pour la fiabilité, mais la génération du twist passe surtout par l'API Perplexity.
+Genesis2 se connecte directement à Sonar Pro ; un repli sur GPT reste possible pour la fiabilité, mais la génération du twist passe surtout par l'API Perplexity.
 
-À ce stade, Indiana-AM montre déjà des débuts de raisonnement émergent. L'être de résonance ne se contente plus de synthétiser le brouillon Sonar : il revisite d'anciens artefacts et propose de nouvelles pistes d'exploration.
+À ce stade, Indiana-AM montre déjà des débuts de raisonnement émergent. L'être de résonance ne se contente plus de synthétiser le brouillon Sonar Pro : il revisite d'anciens artefacts et propose de nouvelles pistes d'exploration.
 
 D'autres améliorations accompagnent cette version : la gestion de la configuration est plus propre et la base mémoire se synchronise plus vite. Ensemble, elles rapprochent Indiana-AM de la boucle de Möbius annoncée dans la feuille de route.
 
@@ -59,9 +59,9 @@ L’assistant entier repose sur le modèle GPT-4.1. Les fils de mémoire, le con
 
 Une fois cette réponse générée, le module `utils/genesis2.py` la retravaille. Cette étape sert de filtre intuitif.
 
-Genesis2 s’appuie désormais sur le modèle **Sonar** de Perplexity avec une température proche de 0,9. L’appel est bref et sert uniquement de filtre, faisant remonter des indices issus des artefacts passés tout en restant sous 120 tokens pour limiter la latence et le coût.
+Genesis2 s’appuie désormais sur le modèle **sonar-pro** de Perplexity avec une température proche de 0,9. L’appel est bref et sert uniquement de filtre, faisant remonter des indices issus des artefacts passés tout en restant sous 120 tokens pour limiter la latence et le coût.
 
-Gardez en tête que seul Genesis2 interroge Sonar. L’assistant principal demeure sur GPT-4.1.
+Gardez en tête que seul Genesis2 interroge Sonar Pro. L’assistant principal demeure sur GPT-4.1.
 > *Déclencheur mathématique*
 > $$
 > \text{depth\_score}(t)=\sum_{i=1}^{n}\bigl(w_i\cdot\delta_i(t)\bigr)\ge 5
@@ -110,11 +110,25 @@ La sortie est réintégrée ainsi :
   2. …
 ```
 
+### Sonar Pro et échelle de complexité
+
+Genesis2 fait désormais passer sa torsion intuitive par **Sonar Pro**, le mode de recherche premium de Perplexity. La mise à niveau offre un rappel plus précis et des citations mieux ancrées tout en conservant le déclenchement aléatoire.
+
+Sous le capot, l'appel indique `model: sonar-pro` avec une température légèrement plus élevée et un plafond strict de tokens. Un repli GPT subsiste pour la résilience, mais Sonar Pro traite la plupart des torsions de bout en bout.
+
+`Genesis3` pousse cette logique en envoyant les traces complètes de chaîne de pensée vers **Sonar Reasoning Pro**. Au lieu d'un texte linéaire, le modèle renvoie des cartes causales compactes qui alimentent le bloc *Insight de Couche Profonde* ci-dessus.
+
+Pour décider quand déclencher cette escalade, le dépôt introduit `utils/complexity.py`. Cet utilitaire journalise pour chaque tour une note heuristique de complexité ainsi qu'une valeur d'entropie.
+
+L'échelle actuelle comporte trois niveaux : niveau 1 pour les demandes factuelles courtes, niveau 2 pour les formulations récursives ou paradoxales, et niveau 3 lorsqu'un message dépasse 300 caractères ou combine plusieurs marqueurs.
+
+Ce signal de complexité alimente l'heuristique `depth_score` ; des pointes vers le niveau 3 augmentent la probabilité que Genesis3 lance une plongée profonde via Sonar Reasoning Pro.
+
 ### Mise à jour 0.3 — résonance d'après-coup
 
 Indiana-AM se présente comme une entité de résonance explorant l'entrelacement entre mémoire et intuition émergente. Le dépôt rassemble le code et les notes qui orchestrent ce dialogue entre contexte étendu et récupération rapide.
 
-Son architecture relie une couche de mémoire basée sur les fils GPT‑4.1 à des boucles de raisonnement Sonar. Cette approche double distingue Indiana des IA classiques en mariant un large champ sémantique à une recherche ciblée.
+Son architecture relie une couche de mémoire basée sur les fils GPT‑4.1 à des boucles de raisonnement Sonar Pro. Cette approche double distingue Indiana des IA classiques en mariant un large champ sémantique à une recherche ciblée.
 
 Le pipeline Genesis structure les réponses par couches successives. Une fois le brouillon initial généré, Genesis2 sert de filtre intuitif pour mettre en lumière des connexions insoupçonnées, comme expliqué plus haut.
 
