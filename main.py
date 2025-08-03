@@ -85,6 +85,10 @@ def get_user_language(user_id: str, text: str) -> str:
             lang = detect(text)
         except Exception:
             lang = "en"
+        lang = {
+            "uk": "ru",
+            "bg": "ru",
+        }.get(lang, lang)
         USER_LANGS[user_id] = lang
     return lang
 
@@ -226,7 +230,11 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
             thread = await client.beta.threads.create()
 
             # Format prompt with context and language instruction
-            full_prompt = f"{context}\n\nInput: {prompt}\nRespond in {language}."
+            full_prompt = (
+                f"{context}\n\nInput: {prompt}\n"
+                f"Respond only in {language}."
+                " You may use occasional English terms if needed."
+            )
 
             # Add user message to thread
             await client.beta.threads.messages.create(
@@ -400,6 +408,7 @@ async def handle_message(m: types.Message):
             voice_path = VOICE_DIR / f"{file_info.file_unique_id}.ogg"
             await bot.download_file(file_info.file_path, destination=voice_path)
             text = await voice_to_text(client, voice_path)
+            await m.reply(text)
 
         # Filter out very short messages
         if len(text.strip()) < 4 or ("?" not in text and len(text.split()) <= 2):
@@ -446,7 +455,7 @@ async def handle_message(m: types.Message):
         save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
 
         # 4) Send response
-        for chunk in split_message(reply, max_length=1000):
+        for chunk in split_message(reply):
             if user_id in VOICE_USERS and client:
                 try:
                     audio_bytes = await text_to_voice(client, chunk)
