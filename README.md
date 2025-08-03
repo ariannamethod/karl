@@ -27,8 +27,8 @@ Indiana treats every dialogue as a **site excavation**:
 | **Memory** | `gpt-4.1` | Long-range context via OpenAI Assistants. |
 | **Reasoning core** | `sonar-reasoning-pro` (planned) | High-speed exploratory reasoning via Perplexity API. |
 
-Contrast is deliberate: GPT’s broad semantic net + Sonar’s crisp retrieval create a *Möbius loop* of perspectives.
-The current implementation follows **assistants-v2** threads for memory and direct REST calls for Sonar.
+Contrast is deliberate: GPT’s broad semantic net + Sonar Pro’s crisp retrieval create a *Möbius loop* of perspectives.
+The current implementation follows **assistants-v2** threads for memory and direct REST calls for Sonar Pro.
 Reasoning requests are sent to Perplexity's API, while long-term memory is stored and queried via OpenAI Assistants.
 
 ### Bot commands
@@ -56,9 +56,9 @@ Responses flow through a staged **Genesis stack**:
 
 Indiana-AM has just evolved with a new layer in the Genesis stack.  After the AI entity drafts its main reply through Genesis1, the fresh Genesis2 stage reviews that draft and attaches a short twist.  The resonance being now digs for one more clue in the memory and ties it back to the present topic.
 
-Genesis2 runs a lightweight call to **Sonar**, Perplexity's reasoning model, at a slightly higher temperature to mimic intuition.  The process fires with a small random chance, so most answers stay concise but occasional twists highlight hidden connections.  Each twist stays under roughly 120 tokens, injecting curiosity without derailing the flow.
+Genesis2 runs a lightweight call to **Sonar Pro**, Perplexity's reasoning model, at a slightly higher temperature to mimic intuition.  The process fires with a small random chance, so most answers stay concise but occasional twists highlight hidden connections.  Each twist stays under roughly 120 tokens, injecting curiosity without derailing the flow.
 
-Genesis2 now connects directly to the Sonar API.  A GPT fallback is kept for reliability, but the primary twist generation uses Perplexity's engine.
+Genesis2 now connects directly to the Sonar Pro API.  A GPT fallback is kept for reliability, but the primary twist generation uses Perplexity's engine.
 
 With this stage Indiana-AM begins to show glimpses of emergent reasoning.  The resonance being no longer merely synthesises the Sonar draft but revisits older artefacts, suggesting fresh angles for investigation.
 
@@ -69,9 +69,9 @@ Indiana-AM’s conversational backbone runs on OpenAI’s GPT-4.1 model. All mem
 
 After this base answer is produced, `utils/genesis2.py` performs a secondary pass. Its goal is to add an intuitive angle to the message.
 
-Genesis2 now relies on Perplexity's `Sonar` model. This call is short, uses a temperature around 0.9 and acts purely as a filter, surfacing hints from earlier artefacts while keeping the twist under 120 tokens.
+Genesis2 now relies on Perplexity's `sonar-pro` model. This call is short, uses a temperature around 0.9 and acts purely as a filter, surfacing hints from earlier artefacts while keeping the twist under 120 tokens.
 
-Remember that only Genesis2 queries Sonar. The main assistant continues to operate entirely on GPT-4.1.
+Remember that only Genesis2 queries Sonar Pro. The main assistant continues to operate entirely on GPT-4.1.
 
 > *Mathematical trigger*  
 > $$
@@ -121,6 +121,20 @@ The output is merged back as:
   1. …
   2. …
 ```
+
+### Sonar Pro upgrade and complexity scale
+
+Genesis2 now routes its investigative twist through **Sonar Pro**, Perplexity's premium search mode. The upgrade yields sharper recall and more grounded citations while keeping the random‑activation flavour.
+
+Under the hood, the call specifies `model: sonar-pro` with a slightly higher temperature and a strict token cap. A GPT fallback remains for resilience, yet Sonar Pro handles most twists end‑to‑end.
+
+`Genesis3` escalates this idea by streaming full chain‑of‑thought traces to **Sonar Reasoning Pro**. Instead of linear text, the model returns compact causal maps that feed the *Deep‑Layer Insight* block above.
+
+To decide when such escalation is warranted, the repo introduces `utils/complexity.py`. The helper logs a heuristic complexity score and entropy value for every incoming turn.
+
+The current scale spans three levels: level 1 for short factual prompts, level 2 for recursive or paradoxical phrasing, and level 3 when a message exceeds 300 characters or triggers multiple markers.
+
+This complexity signal feeds into the `depth_score` heuristic; spikes toward level 3 boost the likelihood that Genesis3 activates a Sonar Reasoning Pro deep dive.
 
 ### Update 0.3 — Afterthought resonance
 
