@@ -3,6 +3,7 @@ import os
 
 SONAR_PRO_URL = "https://api.perplexity.ai/chat/completions"
 GEN3_MODEL = "sonar-reasoning-pro"
+GEN3_MAX_TOKENS = int(os.getenv("GEN3_MAX_TOKENS", "1024"))
 
 
 def _headers() -> dict:
@@ -28,7 +29,7 @@ async def genesis3_deep_dive(chain_of_thought: str, prompt: str) -> str:
     payload = {
         "model": GEN3_MODEL,
         "temperature": 0.65,
-        "max_tokens": 320,
+        "max_tokens": GEN3_MAX_TOKENS,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {

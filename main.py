@@ -296,7 +296,7 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
         draft = await process_with_assistant(prompt, context, lang)
         deep = ""
         try:
-            deep = await genesis3_deep_dive(draft, prev_reply)
+            deep = await genesis3_deep_dive(draft, original)
         except Exception as e:
             logger.error(f"[Genesis-3] followup fail {e}")
         quote = prev_reply if len(prev_reply) <= 500 else prev_reply[:497] + "..."
