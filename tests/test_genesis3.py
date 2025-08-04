@@ -46,7 +46,7 @@ async def test_genesis3_deep_dive(monkeypatch):
     monkeypatch.setenv("PPLX_API_KEY", "TOKEN")
     monkeypatch.setattr(genesis3, "httpx", type("x", (), {"AsyncClient": DummyClient}))
     result = await genesis3.genesis3_deep_dive("thought", "prompt")
-    assert result == "🔍 deep insight"
+    assert result == "🔍 deep insight..."
     assert "FOLLOWUP" not in captured[0]["messages"][1]["content"]
 
     await genesis3.genesis3_deep_dive("thought", "prompt", is_followup=True)

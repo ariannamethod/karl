@@ -3,10 +3,8 @@ import textwrap
 from datetime import datetime, timezone
 import httpx
 import re
-from typing import List
 
 from .config import settings  # settings.PPLX_API_KEY должен быть определён
-from .message_helper import sentence_end_pattern
 
 # Самая универсальная рабочая модель на сегодня:
 PPLX_MODEL = "sonar-pro"
@@ -17,6 +15,10 @@ headers = {
     "Authorization": f"Bearer {settings.PPLX_API_KEY}",
     "Content-Type": "application/json",
 }
+
+
+# Символы, которыми должно заканчиваться корректное предложение
+SENTENCE_ENDINGS = ('.', '!', '?', ':', ';', '"', ')', ']', '}')
 
 
 def _build_prompt(draft: str, user_prompt: str, language: str) -> list:
@@ -56,45 +58,6 @@ async def _call_sonar(messages: list) -> str:
         return content.strip()
 
 
-def split_message(message: str, max_length: int = 4000) -> List[str]:
-    """
-    Разбивает длинное сообщение на части, сохраняя целостность предложений
-    """
-    if len(message) <= max_length:
-        return [message]
-    
-    parts = []
-    current_text = message
-    
-    while len(current_text) > 0:
-        if len(current_text) <= max_length:
-            parts.append(current_text)
-            break
-        
-        # Ищем последний конец предложения или абзаца до max_length
-        cut_point = max_length
-        last_period = current_text[:cut_point].rfind('. ')
-        last_exclamation = current_text[:cut_point].rfind('! ')
-        last_question = current_text[:cut_point].rfind('? ')
-        last_paragraph = current_text[:cut_point].rfind('\n\n')
-        
-        end_points = [p for p in [last_period, last_exclamation, last_question, last_paragraph] if p != -1]
-        
-        if end_points:
-            # Берем самую дальнюю точку разрыва
-            cut_point = max(end_points) + 2
-        else:
-            # Если не нашли хорошей точки разрыва, ищем последний пробел
-            last_space = current_text[:cut_point].rfind(' ')
-            if last_space != -1:
-                cut_point = last_space + 1
-        
-        parts.append(current_text[:cut_point])
-        current_text = current_text[cut_point:]
-    
-    return parts
-
-
 async def genesis2_sonar_filter(user_prompt: str, draft_reply: str, language: str) -> str:
     # Не всегда срабатывать — для "живости"
     if random.random() < 0.12 or not settings.PPLX_API_KEY:
@@ -102,11 +65,11 @@ async def genesis2_sonar_filter(user_prompt: str, draft_reply: str, language: st
     try:
         messages = _build_prompt(draft_reply, user_prompt, language)
         twist = await _call_sonar(messages)
-        
+
         # Проверка на обрезание сообщения посередине предложения
-        if not re.search(sentence_end_pattern, twist):
-            twist = re.sub(r'\w+$', '...', twist)
-        
+        if twist and twist[-1] not in SENTENCE_ENDINGS:
+            twist = twist.rstrip() + "..."
+
         return twist
     except Exception as e:
         print(f"[Genesis-2] Sonar fail {e} @ {datetime.now(timezone.utc).isoformat()}")
@@ -116,18 +79,5 @@ async def genesis2_sonar_filter(user_prompt: str, draft_reply: str, language: st
 async def assemble_final_reply(user_prompt: str, indiana_draft: str, language: str) -> str:
     twist = await genesis2_sonar_filter(user_prompt, indiana_draft, language)
     if twist:
-        final_reply = f"{indiana_draft}\n\n🜂 Investigative Twist → {twist}"
-        
-        # Проверяем, нужно ли разделить сообщение
-        if len(final_reply) > 4000:
-            parts = split_message(final_reply)
-            
-            # Добавляем индикатор продолжения для всех частей, кроме последней
-            for i in range(len(parts) - 1):
-                parts[i] = parts[i] + "\n\n[продолжение следует...]"
-            
-            return parts
-        
-        return final_reply
-    
+        return f"{indiana_draft}\n\n🜂 Investigative Twist → {twist}"
     return indiana_draft
