@@ -1,16 +1,19 @@
 import asyncio
 
 def split_message(text: str, max_length: int = 4000):
-    """Split a message into chunks respecting maximum length limit."""
-    parts = []
-    
+    """
+    Разделяет сообщение на части, учитывая максимальную длину Telegram.
+    Старается сохранять целостность абзацев и предложений.
+    """
     # Если сообщение короче максимального размера, возвращаем его как есть
     if len(text) <= max_length:
         return [text]
     
+    parts = []
+    current_part = ""
+    
     # Разбиваем длинное сообщение на части, учитывая абзацы
     paragraphs = text.split('\n\n')
-    current_part = ""
     
     for paragraph in paragraphs:
         # Если абзац сам по себе длиннее максимального размера, его нужно разбить по предложениям
@@ -72,4 +75,4 @@ async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
         if i < len(parts) - 1:
             await asyncio.sleep(0.5)
     
-    return sent_messages[0] if len(sent_messages) == 1 else sent_messages 
+    return sent_messages[0] if len(sent_messages) == 1 else sent_messages
