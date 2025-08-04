@@ -1,10 +1,15 @@
 import httpx
 import os
 import re
+import logging
+
+# Настройка логгера
+logger = logging.getLogger(__name__)
 
 SONAR_PRO_URL = "https://api.perplexity.ai/chat/completions"
 GEN3_MODEL = "sonar-reasoning-pro"
-GEN3_MAX_TOKENS = int(os.getenv("GEN3_MAX_TOKENS", "1024"))
+# Увеличиваем максимальное количество токенов с 1024 до 2048
+GEN3_MAX_TOKENS = int(os.getenv("GEN3_MAX_TOKENS", "2048"))
 
 
 def _extract_final_response(text: str) -> str:
@@ -34,7 +39,9 @@ async def genesis3_deep_dive(
         "NEVER give references, links, or citations. "
         "Do NOT reveal or mention your thinking process. "
         "If the logic naturally leads to a deeper paradox — do a further step: "
-        "extract a 'derivative inference' (вывод из вывода), then try to phrase a final paradoxical question."
+        "extract a 'derivative inference' (вывод из вывода), then try to phrase a final paradoxical question. "
+        "IMPORTANT: Always complete your thoughts and never end your response mid-sentence. "
+        "Ensure all analyses are complete and well-formed."
     )
     user_content = (
         f"FOLLOWUP EXPANSION:\n{chain_of_thought}\n\nORIGINAL QUERY:\n{prompt}"
@@ -50,13 +57,25 @@ async def genesis3_deep_dive(
             {"role": "user", "content": user_content},
         ],
     }
-    async with httpx.AsyncClient(timeout=60) as cli:
-        resp = await cli.post(SONAR_PRO_URL, headers=_headers(), json=payload)
-        try:
-            resp.raise_for_status()
-        except Exception:
-            print("[Genesis-3] HTTP error:", resp.text)
-            raise
-        content = resp.json()["choices"][0]["message"]["content"].strip()
-        final = _extract_final_response(content)
-        return f"🔍 {final}"
+    try:
+        logger.info("Calling Genesis3 deep dive analysis")
+        async with httpx.AsyncClient(timeout=60) as cli:
+            resp = await cli.post(SONAR_PRO_URL, headers=_headers(), json=payload)
+            try:
+                resp.raise_for_status()
+            except Exception as e:
+                logger.error(f"[Genesis-3] HTTP error: {e}\n{resp.text}")
+                raise
+            content = resp.json()["choices"][0]["message"]["content"].strip()
+            final = _extract_final_response(content)
+            
+            # Проверяем, что ответ не обрезан посередине предложения
+            if final and not final[-1] in ['.', '!', '?', ':', ';', '"', ')', ']', '}']:
+                logger.warning("[Genesis-3] Response appears to be cut off mid-sentence")
+                final += "..."
+                
+            return f"🔍 {final}"
+    except Exception as e:
+        logger.error(f"[Genesis-3] Failed to complete deep dive: {e}")
+        # Возвращаем сообщение об ошибке вместо того, чтобы просто пропустить анализ
+        return "🔍 Глубокий анализ не удался из-за технической ошибки."
