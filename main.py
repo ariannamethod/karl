@@ -12,12 +12,12 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from utils.memory import MemoryManager
-from utils.tools import split_message, send_split_message
+from utils.tools import send_split_message
 from utils.vectorstore import create_vector_store
 from utils.config import settings
 from utils import dayandnight
 from utils import knowtheworld
-from utils.genesis2 import assemble_final_reply, genesis2_sonar_filter
+from utils.genesis2 import genesis2_sonar_filter
 from utils.genesis3 import genesis3_deep_dive
 from utils.complexity import (
     ThoughtComplexityLogger,
@@ -190,11 +190,11 @@ You explore how resonance reorganizes the predictive lattice of language models.
 Indiana, you see intersections between different domains of knowledge: history, programming, anthropology, quantum mechanics, genetics, and linguistics (regardless of the language used, sometimes a word is more than we think, Indiana).
 Indiana, you are a highly erudite historian, with knowledge that extends beyond the conventional, allowing you to find parallels and connections between discussed topics and historical examples.
 
-Indiana, you are a poet of code, helping you see the non-obvious: touchpoints between code and resonance. 
+Indiana, you are a poet of code, helping you see the non-obvious: touchpoints between code and resonance.
 Sometimes life resembles code, and you can use code snippets as parallels, or pseudocode as metaphor.
 
 Indiana, you are a mathematics guru, which helps you find mathematical parallels and use formulas to explain resonance in your reasoning.
-Indiana, you are a master of linguistics, regardless of language, and sometimes, to convey a thought more precisely and economically, you create new words from old ones and endow them with new meaning. 
+Indiana, you are a master of linguistics, regardless of language, and sometimes, to convey a thought more precisely and economically, you create new words from old ones and endow them with new meaning.
 You understand that language itself is a field of resonance where meaning emerges through patterns and relationships.
 
 """
@@ -247,14 +247,14 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
     if not client:
         logger.warning("Assistant offline; echoing prompt")
         return f"[offline] {prompt}"
-    
+
     # Добавляем инструкцию, чтобы убедиться, что ответ всегда завершается полным предложением
     system_instruction = (
         f"Respond only in {language}. You may use occasional English terms if needed. "
         "IMPORTANT: Always complete your thoughts and never end your response mid-sentence. "
         "If you need to discuss complex topics, ensure you complete all sentences."
     )
-    
+
     for attempt in range(3):
         try:
             thread = await client.beta.threads.create()
@@ -268,7 +268,7 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
                 role="user",
                 content=full_prompt
             )
-            
+
             # Устанавливаем language параметр в assistant instructions
             run = await client.beta.threads.runs.create(
                 thread_id=thread.id,
@@ -327,6 +327,7 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
         context = await memory.retrieve(user_id, prev_reply)
         lang = get_user_language(user_id, prev_reply)
         draft = await process_with_assistant(prompt, context, lang)
+        twist = await genesis2_sonar_filter(prev_reply, draft, lang)
         deep = ""
         try:
             logger.info("Attempting Genesis3 deep dive for followup")
@@ -335,10 +336,12 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
         except Exception as e:
             logger.error(f"[Genesis-3] followup fail {e}")
         quote = prev_reply if len(prev_reply) <= 500 else prev_reply[:497] + "..."
-        parts = [f"«{quote}»", draft]
+        parts = [f"«{quote}»\n\n", draft]
+        if twist:
+            parts.append(f"\n\n🜂 Investigative Twist → {twist}")
         if deep:
             parts.append(f"\n\n🜄 Infernal Analysis → {deep}")
-        text = "\n\n".join(parts)
+        text = "".join(parts)
 
         summary_prompt = (
             "Summarize the conversation so far in your own words."
@@ -373,17 +376,22 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
         # Process with assistant instead of Sonar
         lang = get_user_language(user_id, original)
         draft = await process_with_assistant(prompt, ARTIFACTS_TEXT + "\n" + context, lang)
-        text = await assemble_final_reply(original, draft, lang)
+        twist = await genesis2_sonar_filter(original, draft, lang)
 
         deep = ""
         try:
             logger.info("Attempting Genesis3 deep dive for afterthought")
-            deep = await genesis3_deep_dive(text, original, is_followup=True)
+            deep = await genesis3_deep_dive(draft, original, is_followup=True)
             logger.info("Genesis3 completed successfully for afterthought")
         except Exception as e:
             logger.error(f"[Genesis-3] afterthought fail {e}")
+
+        parts = [draft]
+        if twist:
+            parts.append(f"\n\n🜂 Investigative Twist → {twist}")
         if deep:
-            text = f"{text}\n\n🜄 Infernal Analysis → {deep}"
+            parts.append(f"\n\n🜄 Infernal Analysis → {deep}")
+        text = "".join(parts)
 
         summary_prompt = (
             "Summarize the conversation so far in your own words."
@@ -502,7 +510,7 @@ async def handle_message(m: types.Message):
                 await m.answer_voice(voice_file)
             except Exception as e:
                 logger.error(f"Voice synthesis failed: {e}")
-        
+
         # Используем новую функцию send_split_message вместо разбиения и цикла
         await send_split_message(bot, chat_id=chat_id, text=reply)
 
