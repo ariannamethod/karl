@@ -72,4 +72,4 @@ async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
         if i < len(parts) - 1:
             await asyncio.sleep(0.5)
     
-    return sent_messages[0] if len(sent_messages) == 1 else sent_messages
+    return sent_messages[0] if len(sent_messages) == 1 else sent_messages 
