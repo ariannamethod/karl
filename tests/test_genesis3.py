@@ -18,6 +18,9 @@ class DummyResponse:
         return self._data
 
 
+captured = []
+
+
 class DummyClient:
     def __init__(self, *args, **kwargs):
         pass
@@ -29,7 +32,12 @@ class DummyClient:
         pass
 
     async def post(self, *args, **kwargs):
-        data = {"choices": [{"message": {"content": "deep insight"}}]}
+        captured.append(kwargs.get("json"))
+        data = {
+            "choices": [
+                {"message": {"content": "<think>prep</think>deep insight"}}
+            ]
+        }
         return DummyResponse(data)
 
 
@@ -39,3 +47,7 @@ async def test_genesis3_deep_dive(monkeypatch):
     monkeypatch.setattr(genesis3, "httpx", type("x", (), {"AsyncClient": DummyClient}))
     result = await genesis3.genesis3_deep_dive("thought", "prompt")
     assert result == "🔍 deep insight"
+    assert "FOLLOWUP" not in captured[0]["messages"][1]["content"]
+
+    await genesis3.genesis3_deep_dive("thought", "prompt", is_followup=True)
+    assert "FOLLOWUP" in captured[1]["messages"][1]["content"]
