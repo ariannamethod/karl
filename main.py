@@ -296,7 +296,7 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
         draft = await process_with_assistant(prompt, context, lang)
         deep = ""
         try:
-            deep = await genesis3_deep_dive(draft, original)
+            deep = await genesis3_deep_dive(draft, original, is_followup=True)
         except Exception as e:
             logger.error(f"[Genesis-3] followup fail {e}")
         quote = prev_reply if len(prev_reply) <= 500 else prev_reply[:497] + "..."
@@ -342,7 +342,7 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
 
         deep = ""
         try:
-            deep = await genesis3_deep_dive(text, original)
+            deep = await genesis3_deep_dive(text, original, is_followup=True)
         except Exception as e:
             logger.error(f"[Genesis-3] afterthought fail {e}")
         if deep:
