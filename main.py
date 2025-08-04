@@ -12,7 +12,7 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from utils.memory import MemoryManager
-from utils.tools import split_message, send_split_message  # Добавляем импорт новой функции
+from utils.tools import split_message, send_split_message
 from utils.vectorstore import create_vector_store
 from utils.config import settings
 from utils import dayandnight
@@ -225,16 +225,20 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
     if not client:
         logger.warning("Assistant offline; echoing prompt")
         return f"[offline] {prompt}"
+    
+    # Добавляем инструкцию, чтобы убедиться, что ответ всегда завершается полным предложением
+    system_instruction = (
+        f"Respond only in {language}. You may use occasional English terms if needed. "
+        "IMPORTANT: Always complete your thoughts and never end your response mid-sentence. "
+        "If you need to discuss complex topics, ensure you complete all sentences."
+    )
+    
     for attempt in range(3):
         try:
             thread = await client.beta.threads.create()
 
-            # Format prompt with context and language instruction
-            full_prompt = (
-                f"{context}\n\nInput: {prompt}\n"
-                f"Respond only in {language}."
-                " You may use occasional English terms if needed."
-            )
+            # Format prompt with context
+            full_prompt = f"{context}\n\nInput: {prompt}\n"
 
             # Add user message to thread
             await client.beta.threads.messages.create(
@@ -242,11 +246,12 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
                 role="user",
                 content=full_prompt
             )
-
-            # Run the assistant
+            
+            # Устанавливаем language параметр в assistant instructions
             run = await client.beta.threads.runs.create(
                 thread_id=thread.id,
-                assistant_id=ASSISTANT_ID
+                assistant_id=ASSISTANT_ID,
+                instructions=system_instruction
             )
 
             # Poll for completion
@@ -268,7 +273,13 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
             messages = await client.beta.threads.messages.list(thread_id=thread.id)
             for message in messages.data:
                 if message.role == "assistant":
-                    return message.content[0].text.value
+                    response_text = message.content[0].text.value
+                    # Проверяем, что ответ не обрезан посередине предложения
+                    if response_text and not response_text[-1] in ['.', '!', '?', ':', ';', '"', ')', ']', '}']:
+                        # Если ответ обрезан, добавляем многоточие
+                        logger.warning("Response appears to be cut off mid-sentence")
+                        response_text += "..."
+                    return response_text
 
             return "No response generated."
         except Exception as e:
@@ -296,7 +307,9 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
         draft = await process_with_assistant(prompt, context, lang)
         deep = ""
         try:
+            logger.info("Attempting Genesis3 deep dive for followup")
             deep = await genesis3_deep_dive(draft, original, is_followup=True)
+            logger.info("Genesis3 completed successfully for followup")
         except Exception as e:
             logger.error(f"[Genesis-3] followup fail {e}")
         quote = prev_reply if len(prev_reply) <= 500 else prev_reply[:497] + "..."
@@ -342,7 +355,9 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
 
         deep = ""
         try:
+            logger.info("Attempting Genesis3 deep dive for afterthought")
             deep = await genesis3_deep_dive(text, original, is_followup=True)
+            logger.info("Genesis3 completed successfully for afterthought")
         except Exception as e:
             logger.error(f"[Genesis-3] afterthought fail {e}")
         if deep:
@@ -437,9 +452,14 @@ async def handle_message(m: types.Message):
             deep_dive = ""
             if (complexity == 3 or FORCE_DEEP_DIVE) and settings.PPLX_API_KEY:
                 try:
+                    logger.info("Attempting Genesis3 deep dive for main response")
                     deep_dive = await genesis3_deep_dive(draft, text)
+                    logger.info("Genesis3 completed successfully for main response")
                 except Exception as e:
                     logger.error(f"[Genesis-3] fail {e}")
+                    # Добавляем сообщение об ошибке вместо пустого ответа
+                    if FORCE_DEEP_DIVE:
+                        deep_dive = "🔍 Глубокий анализ не удался из-за технической ошибки."
 
             parts = [draft]
             if twist:
