@@ -1,4 +1,8 @@
 import asyncio
+import logging
+
+# Настройка логгера
+logger = logging.getLogger(__name__)
 
 def split_message(text: str, max_length: int = 4000):
     """
@@ -60,19 +64,41 @@ async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
     Отправляет сообщение в Telegram с корректным разбиением длинных сообщений.
     Добавляет индикаторы продолжения и возвращает все отправленные сообщения.
     """
+    # Логирование длины сообщения для отладки
+    logger.info(f"Sending message with length: {len(text)} characters")
+    
+    # Проверка на обрезанное предложение
+    if text and not text[-1] in ['.', '!', '?', ':', ';', '"', ')', ']', '}']:
+        logger.warning("Message appears to be cut off mid-sentence")
+        # Добавляем многоточие, если сообщение кажется обрезанным
+        text += "..."
+    
     parts = split_message(text)
     sent_messages = []
+    
+    logger.info(f"Split into {len(parts)} parts")
     
     for i, part in enumerate(parts):
         # Добавляем индикатор продолжения/окончания сообщения
         if i < len(parts) - 1:
             part += "\n\n[продолжение следует...]"
         
-        sent = await bot.send_message(chat_id=chat_id, text=part, parse_mode=parse_mode, **kwargs)
-        sent_messages.append(sent)
-        
-        # Небольшая задержка между сообщениями для лучшего восприятия
-        if i < len(parts) - 1:
-            await asyncio.sleep(0.5)
+        try:
+            sent = await bot.send_message(chat_id=chat_id, text=part, parse_mode=parse_mode, **kwargs)
+            sent_messages.append(sent)
+            
+            # Небольшая задержка между сообщениями для лучшего восприятия
+            if i < len(parts) - 1:
+                await asyncio.sleep(0.5)
+        except Exception as e:
+            logger.error(f"Error sending message part {i+1}/{len(parts)}: {str(e)}")
+            # Попытаемся отправить сообщение об ошибке
+            try:
+                await bot.send_message(
+                    chat_id=chat_id, 
+                    text=f"⚠️ Возникла ошибка при отправке части сообщения: {str(e)}"
+                )
+            except:
+                pass
     
     return sent_messages[0] if len(sent_messages) == 1 else sent_messages
