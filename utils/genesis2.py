@@ -1,7 +1,7 @@
+import httpx
 import random
 import textwrap
 from datetime import datetime, timezone
-import httpx
 import re
 
 from .config import settings  # settings.PPLX_API_KEY должен быть определён
