@@ -43,6 +43,7 @@ class DummyClient:
 
 @pytest.mark.asyncio
 async def test_genesis3_deep_dive(monkeypatch):
+    captured.clear()
     monkeypatch.setenv("PPLX_API_KEY", "TOKEN")
     monkeypatch.setattr(genesis3, "httpx", type("x", (), {"AsyncClient": DummyClient}))
     result = await genesis3.genesis3_deep_dive("thought", "prompt")
