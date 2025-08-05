@@ -6,3 +6,4 @@ pinecone
 langdetect
 pytest
 pytest-asyncio
+aiosqlite
