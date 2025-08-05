@@ -1,4 +1,4 @@
-import sqlite3
+import aiosqlite
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -6,29 +6,32 @@ from .vectorstore import BaseVectorStore, create_vector_store
 
 class MemoryManager:
     def __init__(self, db_path: str = "memory.db", vectorstore: Optional[BaseVectorStore] = None):
-        self.db = sqlite3.connect(db_path, check_same_thread=False)
+        self.db_path = db_path
         self.vectorstore = vectorstore or create_vector_store()
-        self._init_db()
 
-    def _init_db(self):
-        self.db.execute("""
+    async def _init_db(self, db: aiosqlite.Connection):
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS memory (
                 user_id TEXT,
                 timestamp TEXT,
                 query TEXT,
                 response TEXT
             )
-        """)
-        self.db.commit()
+            """
+        )
+        await db.commit()
 
     async def save(self, user_id: str, query: str, response: str):
         """Save user query and response to memory database and vector store."""
         ts = datetime.now(timezone.utc).isoformat()
-        self.db.execute(
-            "INSERT INTO memory VALUES (?,?,?,?)",
-            (user_id, ts, query, response)
-        )
-        self.db.commit()
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._init_db(db)
+            await db.execute(
+                "INSERT INTO memory VALUES (?,?,?,?)",
+                (user_id, ts, query, response),
+            )
+            await db.commit()
         if self.vectorstore:
             try:
                 await self.vectorstore.store(
@@ -41,11 +44,13 @@ class MemoryManager:
 
     async def retrieve(self, user_id: str, query: str) -> str:
         """Retrieve last 5 responses for a given user as context."""
-        cur = self.db.execute(
-            "SELECT response FROM memory WHERE user_id=? ORDER BY timestamp DESC LIMIT 5",
-            (user_id,)
-        )
-        rows = cur.fetchall()
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._init_db(db)
+            async with db.execute(
+                "SELECT response FROM memory WHERE user_id=? ORDER BY timestamp DESC LIMIT 5",
+                (user_id,),
+            ) as cur:
+                rows = await cur.fetchall()
         if not rows:
             return ""
         # склеиваем последние 5 ответов как контекст
@@ -64,9 +69,11 @@ class MemoryManager:
 
     async def last_response(self, user_id: str) -> str:
         """Return the most recent response for the given user."""
-        cur = self.db.execute(
-            "SELECT response FROM memory WHERE user_id=? ORDER BY timestamp DESC LIMIT 1",
-            (user_id,),
-        )
-        row = cur.fetchone()
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._init_db(db)
+            async with db.execute(
+                "SELECT response FROM memory WHERE user_id=? ORDER BY timestamp DESC LIMIT 1",
+                (user_id,),
+            ) as cur:
+                row = await cur.fetchone()
         return row[0] if row else ""
