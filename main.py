@@ -547,8 +547,11 @@ async def on_startup(app):
 
 async def on_shutdown(app):
     """Cleanup on shutdown."""
-    # Nothing to clean up for now
-    pass
+    try:
+        repo_watcher.stop()
+        logger.info("Repo watcher stopped")
+    except Exception as e:
+        logger.error(f"Error stopping repo watcher: {e}")
 
 # --- Main function with webhook support ---
 async def main():
