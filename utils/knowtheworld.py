@@ -22,6 +22,7 @@ async def _location() -> str:
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get("https://ipapi.co/json", timeout=10)
+            resp.raise_for_status()
             data = resp.json()
             city = data.get("city")
             country = data.get("country_name")
