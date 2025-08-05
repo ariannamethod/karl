@@ -20,15 +20,16 @@ client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY
 async def _location() -> str:
     """Attempt to determine the current city and country."""
     try:
-        resp = httpx.get("https://ipapi.co/json", timeout=10)
-        data = resp.json()
-        city = data.get("city")
-        country = data.get("country_name")
-        if city and country:
-            return f"{city}, {country}"
-        if country:
-            return country
-    except Exception:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://ipapi.co/json", timeout=10)
+            data = resp.json()
+            city = data.get("city")
+            country = data.get("country_name")
+            if city and country:
+                return f"{city}, {country}"
+            if country:
+                return country
+    except httpx.HTTPError:
         pass
     return "your area"
 
