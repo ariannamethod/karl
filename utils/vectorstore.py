@@ -1,10 +1,11 @@
-import os
 import asyncio
 import logging
+import os
+from difflib import SequenceMatcher
 from typing import Dict, List, Tuple
+
 from openai import AsyncOpenAI
 from pinecone import Pinecone
-from difflib import SequenceMatcher
 
 from .config import settings
 
