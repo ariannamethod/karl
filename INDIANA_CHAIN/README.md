@@ -3,7 +3,8 @@
 **Indiana Chain** is a minimal, autonomous reasoning engine designed to run entirely on the CPU.  
 Inspired by the open-source DEEPSEEK R1 core, it keeps the `<think>`-style reflection and step-by-step planning, but strips away every dependency on external hosting.
 
-At its heart is an enhanced DeepSeek R1 reasoning core, upgraded for autonomous deployment. This version couples R1’s deliberate planning loop with mathematical stabilizers: **RMSNorm, SwiGLU activations, parallel residuals, rotary position embeddings (RoPE), and QK-normalization**. These keep the model numerically stable even under aggressive 2‑bit quantization.  
+At its heart is an enhanced DeepSeek R1 reasoning core, upgraded for autonomous deployment. This version couples R1’s deliberate planning loop with mathematical stabilizers: **RMSNorm, SwiGLU activations, parallel residuals, rotary position embeddings (RoPE), and QK-normalization**. These keep the model numerically stable even under aggressive 2‑bit quantization. 
+
 - **RMSNorm** rescales a vector $x$ by $x / \sqrt{\operatorname{mean}(x^2) + \varepsilon}$, keeping activations in a well-conditioned band.
 - **QK-normalization** adjusts attention scores by their root-mean-square before softmax, focusing attention while avoiding exploding magnitudes.
 
