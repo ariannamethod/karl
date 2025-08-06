@@ -1,6 +1,6 @@
+import os
 import asyncio
 import logging
-import os
 from difflib import SequenceMatcher
 from typing import Dict, List, Tuple
 
