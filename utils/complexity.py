@@ -1,6 +1,5 @@
 from datetime import datetime
 
-
 class ThoughtComplexityLogger:
     """Log complexity scale and entropy for each turn."""
 
