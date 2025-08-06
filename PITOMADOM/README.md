@@ -1,4 +1,4 @@
-# Arianna Method | PITOMADOM v1.2
+# Arianna Method | PITOMADOM v1.3
 *⚡️Dedicated to LEO⚡️*
 
 **Modular Recursive Resonance Octopus**
