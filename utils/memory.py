@@ -1,3 +1,4 @@
+import asyncio
 import aiosqlite
 from datetime import datetime, timezone
 from typing import Optional
@@ -33,14 +34,17 @@ class MemoryManager:
             )
             await db.commit()
         if self.vectorstore:
-            try:
-                await self.vectorstore.store(
-                    f"{user_id}-{ts}",
-                    f"Q: {query}\nA: {response}",
-                    user_id=user_id,
-                )
-            except Exception:
-                pass
+            async def _store_vector():
+                try:
+                    await self.vectorstore.store(
+                        f"{user_id}-{ts}",
+                        f"Q: {query}\nA: {response}",
+                        user_id=user_id,
+                    )
+                except Exception:
+                    pass
+
+            asyncio.create_task(_store_vector())
 
     async def retrieve(self, user_id: str, query: str) -> str:
         """Retrieve last 5 responses for a given user as context."""
