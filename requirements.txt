@@ -7,3 +7,15 @@ langdetect
 pytest
 pytest-asyncio
 aiosqlite
+aiohttp
+beautifulsoup4
+numpy
+pypdf
+python-docx
+striprtf
+textract
+odfpy
+pillow
+pandas
+pyyaml
+rarfile
