@@ -19,6 +19,10 @@ from utils import dayandnight
 from utils import knowtheworld
 from utils.genesis2 import genesis2_sonar_filter
 from utils.genesis3 import genesis3_deep_dive
+from utils.deepdiving import perplexity_search
+from utils.vision import analyze_image
+from utils.imagine import imagine
+from utils.coder import interpret_code
 from utils.complexity import (
     ThoughtComplexityLogger,
     estimate_complexity_and_entropy,
@@ -70,6 +74,8 @@ FOLLOWUP_CHANCE = 0.05
 DetectorFactory.seed = 0
 USER_LANGS: dict[str, str] = {}
 VOICE_USERS: set[str] = set()
+DIVE_WAITING: set[str] = set()
+CODER_USERS: set[str] = set()
 
 complexity_logger = ThoughtComplexityLogger()
 
@@ -131,6 +137,41 @@ async def cleanup_old_voice_files():
             logger.error(f"Voice cleanup error: {e}")
         await asyncio.sleep(86400)
 
+
+async def run_deep_dive(chat_id: int, user_id: str, query: str, lang: str) -> None:
+    """Execute Perplexity search and respond with summary, sources, and insight."""
+    try:
+        async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
+            result = await perplexity_search(query)
+            summary = result.get("answer", "")
+            sources = result.get("sources", [])
+            twist = await genesis2_sonar_filter(query, summary, lang)
+
+        parts = [summary]
+        if twist:
+            parts.append(f"\n\n🜂 Investigative Twist → {twist}")
+        if sources:
+            parts.append("\n\n🔗 Sources:\n" + "\n".join(f"• {s}" for s in sources))
+        reply = "".join(parts)
+        await memory.save(user_id, f"deep dive: {query}", reply)
+        save_note({
+            "time": datetime.now(timezone.utc).isoformat(),
+            "user": user_id,
+            "query": query,
+            "response": reply,
+        })
+        if user_id in VOICE_USERS and client:
+            try:
+                audio = await text_to_voice(client, reply)
+                voice_file = types.BufferedInputFile(audio, filename="reply.ogg")
+                await bot.send_voice(chat_id, voice_file)
+            except Exception as e:
+                logger.error(f"Voice synthesis failed: {e}")
+        await send_split_message(bot, chat_id=chat_id, text=reply)
+    except Exception as e:
+        logger.error(f"Perplexity search failed: {e}")
+        await send_split_message(bot, chat_id=chat_id, text=f"search error: {e}")
+
 async def setup_bot_commands() -> None:
     """Configure bot commands for menu button."""
     commands = [
@@ -138,6 +179,10 @@ async def setup_bot_commands() -> None:
         types.BotCommand(command="deepoff", description="deep off"),
         types.BotCommand(command="voiceon", description="voice mode"),
         types.BotCommand(command="voiceoff", description="mute"),
+        types.BotCommand(command="dive", description="deep diving"),
+        types.BotCommand(command="imagine", description="imagine"),
+        types.BotCommand(command="coder", description="show me your code"),
+        types.BotCommand(command="coderoff", description="code off"),
     ]
     try:
         await bot.set_my_commands(commands)
@@ -439,6 +484,55 @@ async def disable_voice(m: types.Message):
     VOICE_USERS.discard(str(m.from_user.id))
     await m.answer("voice mode disabled")
 
+
+# --- Utility Commands ---
+
+
+@dp.message(F.text.startswith("/dive"))
+async def command_dive(m: types.Message):
+    """Trigger Perplexity search via /dive command."""
+    user_id = str(m.from_user.id)
+    query = m.text[5:].strip() if m.text else ""
+    if not query:
+        DIVE_WAITING.add(user_id)
+        await m.answer("❓")
+        return
+    lang = get_user_language(user_id, query)
+    await run_deep_dive(m.chat.id, user_id, query, lang)
+
+
+@dp.message(F.text.startswith("/imagine"))
+async def command_imagine(m: types.Message):
+    """Generate an image from text description."""
+    user_id = str(m.from_user.id)
+    prompt = m.text[8:].strip() if m.text else ""
+    if not prompt:
+        await m.answer("❓")
+        return
+    lang = get_user_language(user_id, prompt)
+    async with ChatActionSender(bot=bot, chat_id=m.chat.id, action="upload_photo"):
+        url = await asyncio.to_thread(imagine, prompt)
+    comment = "vision crystallized"
+    twist = await genesis2_sonar_filter(prompt, comment, lang)
+    caption = f"{comment}\n\n🜂 Investigative Twist → {twist}"
+    await m.answer_photo(url, caption=caption)
+    await memory.save(user_id, f"imagine: {prompt}", caption + f"\n{url}")
+    save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": prompt, "response": caption})
+
+
+@dp.message(F.text == "/coder")
+async def enable_coder(m: types.Message):
+    """Enable coder mode for the user."""
+    CODER_USERS.add(str(m.from_user.id))
+    await m.answer("coder mode enabled")
+
+
+@dp.message(F.text == "/coderoff")
+async def disable_coder(m: types.Message):
+    """Disable coder mode for the user."""
+    CODER_USERS.discard(str(m.from_user.id))
+    await m.answer("coder mode disabled")
+
 # --- Message Handler ---
 @dp.message()
 async def handle_message(m: types.Message):
@@ -453,14 +547,62 @@ async def handle_message(m: types.Message):
             await bot.download_file(file_info.file_path, destination=voice_path)
             text = await voice_to_text(client, voice_path)
 
+        user_id = str(m.from_user.id)
+        chat_id = m.chat.id
+        private = m.chat.type == "private"
+
+        # Handle incoming photos via vision utility
+        if m.photo:
+            file_id = m.photo[-1].file_id
+            file_info = await bot.get_file(file_id)
+            image_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_info.file_path}"
+            lang = get_user_language(user_id, text or "photo")
+            async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
+                description = await asyncio.to_thread(analyze_image, image_url)
+                twist = await genesis2_sonar_filter("photo", description, lang)
+            reply = f"{description}\n\n🜂 Investigative Twist → {twist}"
+            await memory.save(user_id, f"photo: {image_url}", reply)
+            save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": image_url, "response": reply})
+            if user_id in VOICE_USERS and client:
+                try:
+                    audio_bytes = await text_to_voice(client, reply)
+                    voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
+                    await bot.send_voice(chat_id, voice_file)
+                except Exception as e:
+                    logger.error(f"Voice synthesis failed: {e}")
+            await send_split_message(bot, chat_id=chat_id, text=reply)
+            return
+
+        # Handle pending deep dive requests
+        if user_id in DIVE_WAITING:
+            DIVE_WAITING.discard(user_id)
+            lang = get_user_language(user_id, text)
+            await run_deep_dive(chat_id, user_id, text, lang)
+            return
+
+        # Handle coder mode
+        if user_id in CODER_USERS:
+            lang = get_user_language(user_id, text)
+            async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
+                result = await interpret_code(text)
+                twist = await genesis2_sonar_filter(text, result, lang)
+            reply = f"{result}\n\n🜂 Investigative Twist → {twist}"
+            await memory.save(user_id, text, reply)
+            save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
+            if user_id in VOICE_USERS and client:
+                try:
+                    audio_bytes = await text_to_voice(client, reply)
+                    voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
+                    await bot.send_voice(chat_id, voice_file)
+                except Exception as e:
+                    logger.error(f"Voice synthesis failed: {e}")
+            await send_split_message(bot, chat_id=chat_id, text=reply)
+            return
+
         # Filter out very short messages
         if len(text.strip()) < 4 or ("?" not in text and len(text.split()) <= 2):
             if random.random() < 0.9:
                 return
-
-        user_id = str(m.from_user.id)
-        chat_id = m.chat.id
-        private = m.chat.type == "private"
 
         complexity, entropy = estimate_complexity_and_entropy(text)
         complexity_logger.log_turn(text, complexity, entropy)
@@ -487,7 +629,6 @@ async def handle_message(m: types.Message):
                     logger.info("Genesis3 completed successfully for main response")
                 except Exception as e:
                     logger.error(f"[Genesis-3] fail {e}")
-                    # Добавляем сообщение об ошибке вместо пустого ответа
                     if FORCE_DEEP_DIVE:
                         deep_dive = "🔍 Глубокий анализ не удался из-за технической ошибки."
 
@@ -511,7 +652,6 @@ async def handle_message(m: types.Message):
             except Exception as e:
                 logger.error(f"Voice synthesis failed: {e}")
 
-        # Используем новую функцию send_split_message вместо разбиения и цикла
         await send_split_message(bot, chat_id=chat_id, text=reply)
 
         # 5) Schedule follow-up
