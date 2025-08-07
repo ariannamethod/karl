@@ -60,6 +60,17 @@ class MemoryManager:
         # склеиваем последние 5 ответов как контекст
         return "\n".join(r[0] for r in rows)
 
+    async def recent_messages(self, limit: int = 10) -> list[tuple[str, str]]:
+        """Return recent query/response pairs across all users."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await self._init_db(db)
+            async with db.execute(
+                "SELECT query, response FROM memory ORDER BY timestamp DESC LIMIT ?",
+                (limit,),
+            ) as cur:
+                rows = await cur.fetchall()
+        return rows
+
     async def search_memory(self, user_id: str, query: str, top_k: int = 5) -> list[str]:
         """Search vector memory for similar texts belonging to the given user."""
         if not self.vectorstore:
