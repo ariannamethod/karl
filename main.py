@@ -2,6 +2,7 @@ import json
 import asyncio
 import random
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from aiogram import Bot, Dispatcher, types, F
@@ -30,6 +31,7 @@ from utils.complexity import (
 from langdetect import detect, DetectorFactory
 from utils.repo_monitor import RepoWatcher
 from utils.voice import text_to_voice, voice_to_text
+from utils.context_neural_processor import parse_and_store_file
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -532,6 +534,46 @@ async def disable_coder(m: types.Message):
     """Disable coder mode for the user."""
     CODER_USERS.discard(str(m.from_user.id))
     await m.answer("coder mode disabled")
+
+# --- Document Handler ---
+@dp.message(F.document)
+async def handle_document(m: types.Message):
+    """Process uploaded documents using the context neural processor."""
+    user_id = str(m.from_user.id)
+    chat_id = m.chat.id
+    lang = get_user_language(user_id, m.document.file_name)
+    try:
+        async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
+            ARTIFACTS_DIR.mkdir(exist_ok=True)
+            file_path = ARTIFACTS_DIR / m.document.file_name
+            await m.document.download(destination=str(file_path))
+            processed = await parse_and_store_file(str(file_path))
+            match = re.search(r"Summary: (.*)\nRelevance:", processed, re.DOTALL)
+            summary = match.group(1).strip() if match else processed[:200]
+            twist = await genesis2_sonar_filter(m.document.file_name, summary, lang)
+            reply = summary
+            if twist:
+                reply += f"\n\n🜂 Investigative Twist → {twist}"
+        await memory.save(user_id, f"file: {m.document.file_name}", reply)
+        save_note(
+            {
+                "time": datetime.now(timezone.utc).isoformat(),
+                "user": user_id,
+                "query": m.document.file_name,
+                "response": reply,
+            }
+        )
+        if user_id in VOICE_USERS and client:
+            try:
+                audio_bytes = await text_to_voice(client, reply)
+                voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
+                await bot.send_voice(chat_id, voice_file)
+            except Exception as e:
+                logger.error(f"Voice synthesis failed: {e}")
+        await send_split_message(bot, chat_id=chat_id, text=reply)
+    except Exception as e:
+        logger.error(f"File processing failed: {e}")
+        await m.answer(f"file error: {e}")
 
 # --- Message Handler ---
 @dp.message()
