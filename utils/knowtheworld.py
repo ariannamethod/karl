@@ -5,6 +5,7 @@ import asyncio
 from datetime import datetime, timezone
 
 import httpx
+import aiosqlite
 from openai import AsyncOpenAI
 
 from .vectorstore import create_vector_store
@@ -37,11 +38,13 @@ async def _location() -> str:
 
 async def _fetch_recent_messages(limit: int = 10) -> str:
     """Return last `limit` messages from memory as context."""
-    cur = memory.db.execute(
-        "SELECT query, response FROM memory ORDER BY timestamp DESC LIMIT ?",
-        (limit,),
-    )
-    rows = cur.fetchall()
+    async with aiosqlite.connect(memory.db_path) as db:
+        await memory._init_db(db)
+        async with db.execute(
+            "SELECT query, response FROM memory ORDER BY timestamp DESC LIMIT ?",
+            (limit,),
+        ) as cur:
+            rows = await cur.fetchall()
     if not rows:
         return ""
     return "\n".join(f"Q: {q}\nA: {a}" for q, a in rows)
