@@ -8,6 +8,7 @@ import tempfile
 import zipfile
 import time
 from typing import Callable, Dict, Optional, Tuple, List
+import argparse
 from pathlib import Path
 import random
 import re
@@ -763,10 +764,26 @@ class FileHandler:
 async def parse_and_store_file(
     path: str,
     handler: FileHandler | None = None,
-    engine: 'VectorGrokkyEngine' | None = None,
+    engine=None,
 ) -> str:
     from utils.vector_engine import VectorGrokkyEngine
     handler = handler or FileHandler()
+
+    # Прежде чем извлекать содержимое файла, задействуем интерактивные
+    # динамические веса. Это обеспечивает вызов ``utils.dynamic_weights``
+    # непосредственно из контекстного процессора и даёт возможность
+    # модифицировать "пульс" перед дальнейшей обработкой. При ошибке
+    # просто логируем событие, не прерывая основной поток.
+    try:
+        hint = get_dynamic_knowledge(
+            f"Pulse for file {os.path.basename(path)} (0..1)"
+        )
+        match = re.search(r"0?\.\d+", hint)
+        if match:
+            chaos_pulse.pulse = max(0.1, min(0.9, float(match.group())))
+    except Exception as e:  # pragma: no cover - external service
+        log_event(f"Dynamic weights failed: {e}", "error")
+
     text = await handler.extract_async(path)
     engine = engine or VectorGrokkyEngine()
 
