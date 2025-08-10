@@ -4,6 +4,7 @@ python-dotenv
 httpx
 pinecone
 langdetect
+six==1.12.0
 pytest
 pytest-asyncio
 aiosqlite
