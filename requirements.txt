@@ -4,7 +4,11 @@ python-dotenv
 httpx
 pinecone
 langdetect
-six==1.12.0
+# Six 1.12.0 relies on the deprecated find_module API, which was removed in
+# Python 3.12. This caused `from six.moves import ...` imports to fail,
+# crashing the application when langdetect attempted to import six. Updating to
+# a newer release restores compatibility with Python 3.12.
+six>=1.16.0
 pytest
 pytest-asyncio
 aiosqlite
@@ -14,7 +18,6 @@ numpy
 pypdf
 python-docx
 striprtf
-textract==1.6.3
 odfpy
 pillow
 pandas
