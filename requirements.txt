@@ -4,7 +4,8 @@ python-dotenv
 httpx
 pinecone
 langdetect
-six==1.12.0
+# Use a modern six version; older release 1.12.0 lacks six.moves on Python 3.12
+six>=1.16.0
 pytest
 pytest-asyncio
 aiosqlite
