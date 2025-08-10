@@ -14,8 +14,12 @@ import random
 import re
 import json
 from datetime import datetime
-import aiohttp
-from bs4 import BeautifulSoup
+
+try:  # Optional dependency
+    from bs4 import BeautifulSoup
+except ImportError:  # pragma: no cover - optional
+    BeautifulSoup = None
+
 import numpy as np
 import sqlite3
 try:
@@ -23,8 +27,14 @@ try:
 except ImportError:
     CharGen = None
 from utils.dynamic_weights import get_dynamic_knowledge, apply_pulse
-from pypdf import PdfReader
-from pypdf.errors import PdfReadError
+try:  # Optional dependency
+    from pypdf import PdfReader
+    from pypdf.errors import PdfReadError
+except ImportError:  # pragma: no cover - optional
+    PdfReader = None
+
+    class PdfReadError(Exception):
+        pass
 try:
     import docx
 except ImportError:
@@ -446,6 +456,8 @@ class FileHandler:
 
     async def _extract_pdf(self, path: str) -> str:
         async with self._semaphore:
+            if PdfReader is None:
+                return "[PDF unsupported: install pypdf]"
             try:
                 reader = PdfReader(path)
                 text = "".join(page.extract_text() or "" for page in reader.pages)
@@ -528,6 +540,12 @@ class FileHandler:
 
     async def _extract_html(self, path: str) -> str:
         async with self._semaphore:
+            if BeautifulSoup is None:
+                log_event(
+                    "HTML/XML extraction skipped: BeautifulSoup not installed",
+                    "error",
+                )
+                return "[HTML parsing requires beautifulsoup4]"
             try:
                 with open(path, encoding="utf-8") as f:
                     soup = BeautifulSoup(f.read(), "html.parser")
@@ -542,10 +560,16 @@ class FileHandler:
                     esn.update(text, chaos_pulse.get())
                     return self._truncate(text) if text.strip() else "[HTML/XML empty]"
                 except OSError as e:
-                    log_event(f"HTML/XML error ({os.path.basename(path)}): {str(e)}", "error")
+                    log_event(
+                        f"HTML/XML error ({os.path.basename(path)}): {str(e)}",
+                        "error",
+                    )
                     return f"[HTML/XML error: {str(e)}]"
             except OSError as e:
-                log_event(f"HTML/XML error ({os.path.basename(path)}): {str(e)}", "error")
+                log_event(
+                    f"HTML/XML error ({os.path.basename(path)}): {str(e)}",
+                    "error",
+                )
                 return f"[HTML/XML error: {str(e)}]"
 
     async def _extract_json(self, path: str) -> str:
