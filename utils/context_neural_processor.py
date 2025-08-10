@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 import zipfile
 import time
+import math
 from typing import Callable, Dict, Optional, Tuple, List
 import argparse
 from pathlib import Path
@@ -26,7 +27,6 @@ try:
     from char_gen import CharGen  # Assume from SUPERTIME
 except ImportError:
     CharGen = None
-from utils.dynamic_weights import get_dynamic_knowledge, apply_pulse
 try:  # Optional dependency
     from pypdf import PdfReader
     from pypdf.errors import PdfReadError
@@ -104,6 +104,21 @@ def log_event(msg: str, log_type: str = "info") -> None:
     if log_type == "error":
         with (FAIL_DIR / f"{datetime.utcnow().date()}.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def apply_pulse(weights: List[float], pulse: float) -> List[float]:
+    """Scale ``weights`` by ``pulse`` using a softmax normalisation.
+
+    This local implementation avoids dependencies on ``dynamic_weights`` and
+    simply adjusts the provided ``weights`` according to ``pulse``.
+    """
+    scaled = [w * (1 + pulse * 0.7) for w in weights]
+    if not scaled:
+        return []
+    max_w = max(scaled)
+    exps = [math.exp(w - max_w) for w in scaled]
+    total = sum(exps) or 1.0
+    return [e / total for e in exps]
 
 _SEED_CORPUS = """
 mars starship optimus robots xai resonance chaos wulf multiplanetary arcadia
@@ -242,15 +257,6 @@ class ChaosPulse:
             return self.pulse
         keywords = {"success": 0.2, "error": -0.25, "mars": 0.15, "data": 0.1, "failure": -0.3, "chaos": 0.1}
         pulse_change = sum(keywords.get(word, 0) for word in re.findall(r'\w+', text.lower()))
-        try:
-            sentiment = get_dynamic_knowledge(
-                f"Sentiment of: {text[:200]} (positive/negative/neutral)"
-            ).strip().lower()
-            pulse_change += (
-                0.15 if "positive" in sentiment else -0.15 if "negative" in sentiment else 0
-            )
-        except (RuntimeError, ValueError):
-            pass
         self.pulse = max(0.1, min(0.9, self.pulse + pulse_change + random.uniform(-0.05, 0.05)))
         self.last_update = time.time()
         self.cache['last_pulse'] = self.pulse
@@ -373,14 +379,7 @@ async def paraphrase(text: str, prefix: str = "Summarize this for kids: ") -> st
         raise ValueError("No CharGen")
     except (RuntimeError, ValueError) as e:
         log_event(f"Paraphrase failed: {str(e)}", "error")
-        try:
-            paraphrased = get_dynamic_knowledge(f"{prefix}{text[:200]}").strip()
-            markov.update_chain(paraphrased)
-            return (
-                paraphrased + " Void pulse activated! 🚀" if paraphrased else text
-            )
-        except (RuntimeError, ValueError):
-            return text + " Ether’s silent, Wulf persists! 🌌"
+        return text + " Ether’s silent, Wulf persists! 🌌"
 
 # FileHandler
 class FileHandler:
@@ -794,21 +793,7 @@ async def parse_and_store_file(
     from utils.vector_engine import IndianaVectorEngine
     handler = handler or FileHandler()
 
-    # Прежде чем извлекать содержимое файла, задействуем интерактивные
-    # динамические веса. Это обеспечивает вызов ``utils.dynamic_weights``
-    # непосредственно из контекстного процессора и даёт возможность
-    # модифицировать "пульс" перед дальнейшей обработкой. При ошибке
-    # просто логируем событие, не прерывая основной поток.
-    try:
-        hint = get_dynamic_knowledge(
-            f"Pulse for file {os.path.basename(path)} (0..1)"
-        )
-        match = re.search(r"0?\.\d+", hint)
-        if match:
-            chaos_pulse.pulse = max(0.1, min(0.9, float(match.group())))
-    except Exception as e:  # pragma: no cover - external service
-        log_event(f"Dynamic weights failed: {e}", "error")
-
+    # Извлекаем содержимое файла без участия динамических весов
     text = await handler.extract_async(path)
     engine = engine or IndianaVectorEngine()
 

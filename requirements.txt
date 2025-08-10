@@ -13,7 +13,7 @@ numpy
 pypdf
 python-docx
 striprtf
-textract
+textract==1.6.3
 odfpy
 pillow
 pandas
