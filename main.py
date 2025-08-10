@@ -86,18 +86,20 @@ FORCE_DEEP_DIVE = False
 
 
 def get_user_language(user_id: str, text: str) -> str:
-    """Detect and store the user's language."""
-    lang = USER_LANGS.get(user_id)
-    if not lang:
-        try:
+    """Detect and store the user's language for each message."""
+    try:
+        if re.search(r"[а-яА-ЯёЁ]", text):
+            lang = "ru"
+        else:
             lang = detect(text)
-        except Exception:
-            lang = "en"
-        lang = {
-            "uk": "ru",
-            "bg": "ru",
-        }.get(lang, lang)
-        USER_LANGS[user_id] = lang
+    except Exception:
+        lang = USER_LANGS.get(user_id, "en")
+    lang = {
+        "uk": "ru",
+        "bg": "ru",
+        "tr": "ru" if re.search(r"[а-яА-ЯёЁ]", text) else "tr",
+    }.get(lang, lang)
+    USER_LANGS[user_id] = lang
     return lang
 
 def load_artifacts() -> str:
@@ -372,7 +374,7 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
             f"\nPREVIOUS >>> {prev_reply}"
         )
         context = await memory.retrieve(user_id, prev_reply)
-        lang = get_user_language(user_id, prev_reply)
+        lang = get_user_language(user_id, original)
         draft = await process_with_assistant(prompt, context, lang)
         twist = await genesis2_sonar_filter(prev_reply, draft, lang)
         deep = ""
