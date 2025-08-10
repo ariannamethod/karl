@@ -548,7 +548,7 @@ async def handle_document(m: types.Message):
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
             ARTIFACTS_DIR.mkdir(exist_ok=True)
             file_path = ARTIFACTS_DIR / m.document.file_name
-            await m.document.download(destination=str(file_path))
+            await bot.download(m.document, destination=str(file_path))
             processed = await parse_and_store_file(str(file_path))
             match = re.search(r"Summary: (.*)\nRelevance:", processed, re.DOTALL)
             summary = match.group(1).strip() if match else processed[:200]
