@@ -64,6 +64,7 @@ try:
     from rarfile import Error as RarError
 except ImportError:
     rarfile = None
+
     class RarError(Exception):
         pass
 
@@ -181,7 +182,7 @@ class MiniESN:
             eigenvalues = np.linalg.eigvals(W)
             spectral_radius = max(abs(eigenvalues))
             self.W = W / spectral_radius if spectral_radius > 0 else W
-        except:
+        except Exception:
             self.W = W
         self.W_out = np.random.randn(self.output_size, hidden_size) * 0.1
         self.state = np.zeros(hidden_size)
@@ -766,7 +767,7 @@ async def parse_and_store_file(
     handler: FileHandler | None = None,
     engine=None,
 ) -> str:
-    from utils.vector_engine import VectorGrokkyEngine
+    from utils.vector_engine import VectorIndianaEngine
     handler = handler or FileHandler()
 
     # Прежде чем извлекать содержимое файла, задействуем интерактивные
@@ -785,7 +786,7 @@ async def parse_and_store_file(
         log_event(f"Dynamic weights failed: {e}", "error")
 
     text = await handler.extract_async(path)
-    engine = engine or VectorGrokkyEngine()
+    engine = engine or VectorIndianaEngine()
 
     # Кэш и релевантность
     with open(path, "rb") as f:
@@ -859,13 +860,12 @@ async def create_repo_snapshot(base_path: str = ".", out_path: str = REPO_SNAPSH
 
 # CLI для теста
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Grokky File Handler: Neural chaos shredder! #AriannaMethod 🌩️")
+    parser = argparse.ArgumentParser(description="Indiana File Handler: Neural chaos shredder! #AriannaMethod 🌩️")
     parser.add_argument("--path", type=str, help="Path to file for parsing")
     parser.add_argument("--snapshot", action="store_true", help="Create repo snapshot")
     args = parser.parse_args()
 
     async def test():
-        handler = FileHandler()
         if args.path:
             text = await parse_and_store_file(args.path)
             print(text)

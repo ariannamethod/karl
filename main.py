@@ -86,18 +86,16 @@ FORCE_DEEP_DIVE = False
 
 
 def get_user_language(user_id: str, text: str) -> str:
-    """Detect and store the user's language."""
-    lang = USER_LANGS.get(user_id)
-    if not lang:
-        try:
+    """Detect and store the user's language for the current message."""
+    try:
+        if re.search(r"[А-Яа-я]", text):
+            lang = "ru"
+        else:
             lang = detect(text)
-        except Exception:
-            lang = "en"
-        lang = {
-            "uk": "ru",
-            "bg": "ru",
-        }.get(lang, lang)
-        USER_LANGS[user_id] = lang
+    except Exception:
+        lang = USER_LANGS.get(user_id, "en")
+    lang = {"uk": "ru", "bg": "ru"}.get(lang, lang)
+    USER_LANGS[user_id] = lang
     return lang
 
 def load_artifacts() -> str:

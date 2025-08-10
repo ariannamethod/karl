@@ -2,8 +2,8 @@ import uuid
 from .vectorstore import create_vector_store
 
 
-class VectorGrokkyEngine:
-    """Minimal vector engine storing documents in the project's vector store."""
+class VectorIndianaEngine:
+    """Minimal vector engine for Indiana's document storage."""
 
     def __init__(self):
         self.store = create_vector_store()
