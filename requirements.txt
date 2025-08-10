@@ -4,7 +4,7 @@ python-dotenv
 httpx
 pinecone
 langdetect
-six==1.12.0
+six>=1.16.0
 pytest
 pytest-asyncio
 aiosqlite
@@ -14,7 +14,6 @@ numpy
 pypdf
 python-docx
 striprtf
-textract==1.6.3
 odfpy
 pillow
 pandas
