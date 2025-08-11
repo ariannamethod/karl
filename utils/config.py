@@ -14,5 +14,8 @@ class Settings:
     GROUP_CHAT: str = os.getenv("GROUP_CHAT", "")
     CREATOR_CHAT: str = os.getenv("CREATOR_CHAT", "")
     PPLX_API_KEY: str = os.getenv("PPLX_API_KEY", os.getenv("PERPLEXITY_API_KEY", ""))
+    RATE_LIMIT_COUNT: int = int(os.getenv("RATE_LIMIT_COUNT", 20))
+    RATE_LIMIT_PERIOD: float = float(os.getenv("RATE_LIMIT_PERIOD", 60))
+    RATE_LIMIT_DELAY: float = float(os.getenv("RATE_LIMIT_DELAY", 0))
 
 settings = Settings()
