@@ -5,6 +5,7 @@ import logging
 import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from collections import defaultdict
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler
@@ -79,6 +80,13 @@ USER_LANGS: dict[str, str] = {}
 VOICE_USERS: set[str] = set()
 DIVE_WAITING: set[str] = set()
 CODER_USERS: set[str] = set()
+
+# Track async response tasks per chat/user for throttling and cleanup
+RESPONSE_TASKS: set[asyncio.Task] = set()
+TASKS_BY_CHAT: dict[int, set[asyncio.Task]] = defaultdict(set)
+TASKS_BY_USER: dict[str, set[asyncio.Task]] = defaultdict(set)
+MAX_TASKS_PER_CHAT = 5
+MAX_TASKS_PER_USER = 2
 
 complexity_logger = ThoughtComplexityLogger()
 
@@ -459,6 +467,64 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
     except Exception as e:
         logger.error(f"Error in afterthought: {e}")
 
+
+async def process_message_task(m: types.Message, chat_id: int, user_id: str, text: str, private: bool) -> None:
+    """Handle delayed processing of a user message."""
+    try:
+        complexity, entropy = estimate_complexity_and_entropy(text)
+        complexity_logger.log_turn(text, complexity, entropy)
+
+        await asyncio.sleep(random.uniform(10, 40) if private else random.uniform(120, 360))
+
+        mem_ctx = await memory.retrieve(user_id, text)
+        vector_ctx = "\n".join(await memory.search_memory(user_id, text))
+        system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx + "\n" + vector_ctx
+        lang = get_user_language(user_id, text)
+
+        async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
+            draft = await process_with_assistant(text, system_ctx, lang)
+            twist = await genesis2_sonar_filter(text, draft, lang)
+            deep_dive = ""
+            if (complexity == 3 or FORCE_DEEP_DIVE) and settings.PPLX_API_KEY:
+                try:
+                    logger.info("Attempting Genesis3 deep dive for main response")
+                    deep_dive = await genesis3_deep_dive(draft, text)
+                    logger.info("Genesis3 completed successfully for main response")
+                except Exception as e:
+                    logger.error(f"[Genesis-3] fail {e}")
+                    if FORCE_DEEP_DIVE:
+                        deep_dive = "🔍 Глубокий анализ не удался из-за технической ошибки."
+
+        parts = [draft]
+        if twist:
+            parts.append(f"\n\n🜂 Investigative Twist → {twist}")
+        if deep_dive:
+            parts.append(f"\n\n🜄 Infernal Analysis → {deep_dive}")
+        reply = "".join(parts)
+
+        await memory.save(user_id, text, reply)
+        save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
+
+        if user_id in VOICE_USERS and client:
+            try:
+                audio_bytes = await text_to_voice(client, reply)
+                voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
+                await m.answer_voice(voice_file)
+            except Exception as e:
+                logger.error(f"Voice synthesis failed: {e}")
+
+        await send_split_message(bot, chat_id=chat_id, text=reply)
+
+        if random.random() < FOLLOWUP_CHANCE:
+            asyncio.create_task(delayed_followup(chat_id, user_id, reply, text, private))
+
+        if random.random() < AFTERTHOUGHT_CHANCE:
+            asyncio.create_task(afterthought(chat_id, user_id, text, private))
+        await dayandnight.ensure_daily_entry()
+    except Exception as e:
+        logger.error(f"Error in process_message_task: {e}")
+        await m.answer(f"I encountered an error while processing your message: {str(e)}")
+
 # --- Deep Dive Toggle Commands ---
 @dp.message(F.text == "/deep")
 async def enable_deep_mode(m: types.Message):
@@ -653,64 +719,30 @@ async def handle_message(m: types.Message):
             if random.random() < 0.9:
                 return
 
-        complexity, entropy = estimate_complexity_and_entropy(text)
-        complexity_logger.log_turn(text, complexity, entropy)
+        # Respect limits on concurrent responses
+        if (
+            len(TASKS_BY_CHAT[chat_id]) >= MAX_TASKS_PER_CHAT
+            or len(TASKS_BY_USER[user_id]) >= MAX_TASKS_PER_USER
+        ):
+            logger.warning(
+                "Too many active responses for chat %s user %s", chat_id, user_id
+            )
+            await m.answer("⌛")
+            return
 
-        # Delay responses to simulate thoughtfulness
-        # 10-40s for private chats, 2-6m for groups
-        await asyncio.sleep(random.uniform(10, 40) if private else random.uniform(120, 360))
+        task = asyncio.create_task(
+            process_message_task(m, chat_id, user_id, text, private)
+        )
+        RESPONSE_TASKS.add(task)
+        TASKS_BY_CHAT[chat_id].add(task)
+        TASKS_BY_USER[user_id].add(task)
 
-        # 1) Load context from memory and artifacts
-        mem_ctx = await memory.retrieve(user_id, text)
-        vector_ctx = "\n".join(await memory.search_memory(user_id, text))
-        system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx + "\n" + vector_ctx
-        lang = get_user_language(user_id, text)
+        def _cleanup(t: asyncio.Task, c=chat_id, u=user_id):
+            RESPONSE_TASKS.discard(t)
+            TASKS_BY_CHAT[c].discard(t)
+            TASKS_BY_USER[u].discard(t)
 
-        # 2) Process with Assistant API and apply reasoning filters
-        async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
-            draft = await process_with_assistant(text, system_ctx, lang)
-            twist = await genesis2_sonar_filter(text, draft, lang)
-            deep_dive = ""
-            if (complexity == 3 or FORCE_DEEP_DIVE) and settings.PPLX_API_KEY:
-                try:
-                    logger.info("Attempting Genesis3 deep dive for main response")
-                    deep_dive = await genesis3_deep_dive(draft, text)
-                    logger.info("Genesis3 completed successfully for main response")
-                except Exception as e:
-                    logger.error(f"[Genesis-3] fail {e}")
-                    if FORCE_DEEP_DIVE:
-                        deep_dive = "🔍 Глубокий анализ не удался из-за технической ошибки."
-
-            parts = [draft]
-            if twist:
-                parts.append(f"\n\n🜂 Investigative Twist → {twist}")
-            if deep_dive:
-                parts.append(f"\n\n🜄 Infernal Analysis → {deep_dive}")
-            reply = "".join(parts)
-
-        # 3) Save to memory and notes
-        await memory.save(user_id, text, reply)
-        save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
-
-        # 4) Send response
-        if user_id in VOICE_USERS and client:
-            try:
-                audio_bytes = await text_to_voice(client, reply)
-                voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
-                await m.answer_voice(voice_file)
-            except Exception as e:
-                logger.error(f"Voice synthesis failed: {e}")
-
-        await send_split_message(bot, chat_id=chat_id, text=reply)
-
-        # 5) Schedule follow-up
-        if random.random() < FOLLOWUP_CHANCE:
-            asyncio.create_task(delayed_followup(chat_id, user_id, reply, text, private))
-
-        # 6) Randomly schedule afterthought
-        if random.random() < AFTERTHOUGHT_CHANCE:
-            asyncio.create_task(afterthought(chat_id, user_id, text, private))
-        await dayandnight.ensure_daily_entry()
+        task.add_done_callback(_cleanup)
     except Exception as e:
         logger.error(f"Error in handle_message: {e}")
         await m.answer(f"I encountered an error while processing your message: {str(e)}")
@@ -749,6 +781,13 @@ async def on_shutdown(app):
         logger.info("Memory connections closed")
     except Exception as e:
         logger.error(f"Error closing memory: {e}")
+    try:
+        for task in list(RESPONSE_TASKS):
+            task.cancel()
+        await asyncio.gather(*RESPONSE_TASKS, return_exceptions=True)
+        logger.info("Pending response tasks cancelled")
+    except Exception as e:
+        logger.error(f"Error cancelling response tasks: {e}")
 
 # --- Main function with webhook support ---
 async def main():
