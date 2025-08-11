@@ -2,6 +2,7 @@
 
 import random
 import asyncio
+import logging
 from datetime import datetime, timezone
 
 import httpx
@@ -15,6 +16,7 @@ from .config import settings
 vector_store = create_vector_store()
 memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
+logger = logging.getLogger(__name__)
 
 
 async def _location() -> str:
@@ -30,8 +32,8 @@ async def _location() -> str:
                 return f"{city}, {country}"
             if country:
                 return country
-    except httpx.HTTPError:
-        pass
+    except httpx.HTTPError as exc:
+        logger.warning("Failed to determine location: %s", exc)
     return "your area"
 
 
@@ -48,8 +50,8 @@ async def _store_insight(text: str):
     try:
         now = datetime.now(timezone.utc).isoformat()
         await vector_store.store(f"know-{now}", text, user_id="world")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to store insight: %s", exc)
 
 
 async def _gather_news() -> str:
@@ -96,12 +98,15 @@ async def know_the_world():
 
 async def start_world_task():
     """Run know_the_world daily at a random time."""
-    await know_the_world()
-    while True:
-        delay = random.uniform(0, 86400)
-        await asyncio.sleep(delay)
-        try:
-            await know_the_world()
-        except Exception:
-            pass
-        await asyncio.sleep(86400 - delay)
+    try:
+        await know_the_world()
+        while True:
+            delay = random.uniform(0, 86400)
+            await asyncio.sleep(delay)
+            try:
+                await know_the_world()
+            except Exception as exc:
+                logger.warning("World awareness update failed: %s", exc)
+            await asyncio.sleep(86400 - delay)
+    except asyncio.CancelledError:
+        logger.info("World task cancelled")
