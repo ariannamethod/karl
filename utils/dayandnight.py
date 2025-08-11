@@ -14,10 +14,23 @@ logger = logging.getLogger(__name__)
 async def _fetch_last_day():
     """Return the date string of the last daily log if present."""
     try:
-        result = vector_store.index.fetch(ids=["last-daily"])
-        data = result.get("vectors", {}).get("last-daily")
-        if data:
-            return data.get("metadata", {}).get("date")
+        if hasattr(vector_store, "index"):
+            result = vector_store.index.fetch(ids=["last-daily"])
+            if hasattr(result, "to_dict"):
+                result = result.to_dict()
+            if isinstance(result, dict):
+                data = result.get("vectors", {}).get("last-daily")
+            else:
+                vectors = getattr(result, "vectors", None)
+                data = vectors.get("last-daily") if isinstance(vectors, dict) else None
+            if data:
+                metadata = data.get("metadata") if isinstance(data, dict) else getattr(data, "metadata", {})
+                if isinstance(metadata, dict):
+                    return metadata.get("date")
+        elif hasattr(vector_store, "_store"):
+            entry = vector_store._store.get("last-daily")
+            if entry and len(entry) >= 3 and entry[2]:
+                return entry[2].get("date")
     except Exception as exc:
         logger.warning("Failed to fetch last daily log: %s", exc)
         return None
@@ -25,8 +38,9 @@ async def _fetch_last_day():
 
 async def _store_last_day(date: str, text: str):
     try:
-        await vector_store.store(f"daily-{date}", text, user_id="daily")
-        await vector_store.store("last-daily", text, user_id="daily")
+        metadata = {"date": date}
+        await vector_store.store(f"daily-{date}", text, user_id="daily", metadata=metadata)
+        await vector_store.store("last-daily", text, user_id="daily", metadata=metadata)
     except Exception as exc:
         logger.warning("Failed to store daily log: %s", exc)
 
