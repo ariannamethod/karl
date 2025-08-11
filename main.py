@@ -90,20 +90,26 @@ complexity_logger = ThoughtComplexityLogger()
 FORCE_DEEP_DIVE = False
 
 
-def get_user_language(user_id: str, text: str) -> str:
-    """Detect and store the user's language for each message."""
-    try:
-        if re.search(r"[а-яА-ЯёЁ]", text):
-            lang = "ru"
-        else:
+def get_user_language(user_id: str, text: str, language_code: str | None = None) -> str:
+    """Detect and store the user's language for each message.
+
+    The detection strategy prioritizes the actual message content. If the text is
+    too short or ambiguous, it falls back to an optional ``language_code`` hint
+    and finally to a cached language for the user. This keeps behaviour
+    consistent across utilities and supports the language chosen by the user.
+    """
+
+    cached = USER_LANGS.get(user_id)
+    lang = None
+    clean = re.sub(r"\W", "", text or "")
+    if len(clean) >= 3:
+        try:
             lang = detect(text)
-    except Exception:
-        lang = USER_LANGS.get(user_id, "en")
-    lang = {
-        "uk": "ru",
-        "bg": "ru",
-        "tr": "ru" if re.search(r"[а-яА-ЯёЁ]", text) else "tr",
-    }.get(lang, lang)
+        except Exception:
+            lang = None
+    if language_code:
+        language_code = language_code.split("-")[0]
+    lang = lang or language_code or cached or "en"
     USER_LANGS.set(user_id, lang)
     return lang
 
@@ -539,7 +545,7 @@ async def command_dive(m: types.Message):
         DIVE_WAITING.add(user_id)
         await m.answer("❓")
         return
-    lang = get_user_language(user_id, query)
+    lang = get_user_language(user_id, query, m.from_user.language_code)
     await run_deep_dive(m.chat.id, user_id, query, lang)
 
 
@@ -551,7 +557,7 @@ async def command_imagine(m: types.Message):
     if not prompt:
         await m.answer("❓")
         return
-    lang = get_user_language(user_id, prompt)
+    lang = get_user_language(user_id, prompt, m.from_user.language_code)
     async with ChatActionSender(bot=bot, chat_id=m.chat.id, action="upload_photo"):
         url = await asyncio.to_thread(imagine, prompt)
     comment = "vision crystallized"
@@ -582,7 +588,7 @@ async def handle_document(m: types.Message):
     user_id = str(m.from_user.id)
     chat_id = m.chat.id
     safe_name = sanitize_filename(m.document.file_name)
-    lang = get_user_language(user_id, safe_name)
+    lang = get_user_language(user_id, m.caption or "", m.from_user.language_code)
     try:
         if m.document.file_size and m.document.file_size > MAX_FILE_SIZE:
             await m.answer("file too large")
@@ -642,7 +648,7 @@ async def handle_message(m: types.Message):
             file_id = m.photo[-1].file_id
             file_info = await bot.get_file(file_id)
             image_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_info.file_path}"
-            lang = get_user_language(user_id, text or "photo")
+            lang = get_user_language(user_id, text or "", m.from_user.language_code)
             async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
                 description = await asyncio.to_thread(analyze_image, image_url)
                 twist = await genesis2_sonar_filter("photo", description, lang)
@@ -662,13 +668,13 @@ async def handle_message(m: types.Message):
         # Handle pending deep dive requests
         if user_id in DIVE_WAITING:
             DIVE_WAITING.discard(user_id)
-            lang = get_user_language(user_id, text)
+            lang = get_user_language(user_id, text, m.from_user.language_code)
             await run_deep_dive(chat_id, user_id, text, lang)
             return
 
         # Handle coder mode
         if user_id in CODER_USERS:
-            lang = get_user_language(user_id, text)
+            lang = get_user_language(user_id, text, m.from_user.language_code)
             async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
                 result = await interpret_code(text)
                 twist = await genesis2_sonar_filter(text, result, lang)
@@ -702,7 +708,7 @@ async def handle_message(m: types.Message):
         vector_ctx = "\n".join(await memory.search_memory(user_id, text))
         artifact_ctx = artifact_cache.get_all_text()
         system_ctx = artifact_ctx + "\n" + mem_ctx + "\n" + vector_ctx
-        lang = get_user_language(user_id, text)
+        lang = get_user_language(user_id, text, m.from_user.language_code)
 
         # 2) Process with Assistant API and apply reasoning filters
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
