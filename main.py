@@ -23,6 +23,7 @@ from utils import dayandnight
 from utils import knowtheworld
 from utils.genesis2 import genesis2_sonar_filter
 from utils.genesis3 import genesis3_deep_dive
+from utils.genesis6 import genesis6_profile_filter
 from utils.deepdiving import perplexity_search
 from utils.vision import analyze_image
 from utils.imagine import imagine
@@ -138,6 +139,25 @@ def get_user_language(user_id: str, text: str, language_code: str | None = None)
     USER_LANGS.set(user_id, lang)
     return lang
 
+
+async def genesis6_report(user_id: str, message: str, lang: str) -> dict:
+    """Generate emotional profile for the message using Genesis-6."""
+    timestamps = USER_MESSAGE_TIMES.get(user_id, [])
+    avg_pause = 0.0
+    if len(timestamps) > 1:
+        deltas = [
+            (timestamps[i] - timestamps[i - 1]).total_seconds()
+            for i in range(1, len(timestamps))
+        ]
+        avg_pause = sum(deltas) / len(deltas)
+    meta = {
+        "total_msgs": len(timestamps),
+        "avg_pause_sec": round(avg_pause, 2) if avg_pause else 0,
+        "silence_count": 0,
+        "top_topics": [],
+    }
+    return await genesis6_profile_filter(message, meta, lang)
+
 class ArtifactCache:
     """Lazy-loading cache for artefact files with size limit."""
 
@@ -238,8 +258,11 @@ async def run_deep_dive(chat_id: int, user_id: str, query: str, lang: str) -> No
     """Execute Perplexity search and respond with summary, sources, and insight."""
     try:
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
+            profile = await genesis6_report(user_id, query, lang)
             result = await perplexity_search(query)
             summary = result.get("answer", "")
+            if profile:
+                summary = await process_with_assistant(summary, "", lang, profile)
             sources = result.get("sources", [])
             twist = await genesis2_sonar_filter(query, summary, lang)
 
@@ -383,17 +406,30 @@ async def setup_assistant():
         json.dump(data, f)
 
 # --- OpenAI Assistant API integration ---
-async def process_with_assistant(prompt: str, context: str = "", language: str = "en") -> str:
+async def process_with_assistant(
+    prompt: str, context: str = "", language: str = "en", profile: dict | None = None
+) -> str:
     """Process message using OpenAI Assistant API."""
     if not client:
         logger.warning("Assistant offline; echoing prompt")
         return f"[offline] {prompt}"
 
     # Добавляем инструкцию, чтобы убедиться, что ответ всегда завершается полным предложением
+    profile_instruction = ""
+    if profile:
+        profile_instruction = (
+            f" Current emotional tone: {profile.get('emotional_tone', '')}."
+            f" Psych pattern: {profile.get('psych_pattern', '')}."
+            f" Resonance: {profile.get('resonance', '')}."
+            f" Recommendation: {profile.get('recommendation', '')}."
+            " Adjust your style accordingly but do not mention this analysis."
+        )
+
     system_instruction = (
         f"Respond only in {language}. You may use occasional English terms if needed. "
         "IMPORTANT: Always complete your thoughts and never end your response mid-sentence. "
         "If you need to discuss complex topics, ensure you complete all sentences."
+        + profile_instruction
     )
 
     for attempt in range(3):
@@ -557,7 +593,10 @@ async def enable_deep_mode(m: types.Message):
     """Enable persistent Genesis-3 deep dives."""
     global FORCE_DEEP_DIVE
     FORCE_DEEP_DIVE = True
-    await m.answer("deep mode enabled")
+    user_id = str(m.from_user.id)
+    lang = get_user_language(user_id, m.text or "", m.from_user.language_code)
+    await genesis6_report(user_id, m.text or "", lang)
+    await m.answer("☝🏻 deep mode enabled")
 
 
 @dp.message(F.text == "/deepoff")
@@ -565,21 +604,30 @@ async def disable_deep_mode(m: types.Message):
     """Disable persistent Genesis-3 deep dives."""
     global FORCE_DEEP_DIVE
     FORCE_DEEP_DIVE = False
-    await m.answer("deep mode disabled")
+    user_id = str(m.from_user.id)
+    lang = get_user_language(user_id, m.text or "", m.from_user.language_code)
+    await genesis6_report(user_id, m.text or "", lang)
+    await m.answer("☝🏻 deep mode disabled")
 
 
 @dp.message(F.text.in_({"/voiceon", "/voice"}))
 async def enable_voice(m: types.Message):
     """Enable voice responses for the user."""
-    VOICE_USERS.add(str(m.from_user.id))
-    await m.answer("voice mode enabled")
+    user_id = str(m.from_user.id)
+    VOICE_USERS.add(user_id)
+    lang = get_user_language(user_id, m.text or "", m.from_user.language_code)
+    await genesis6_report(user_id, m.text or "", lang)
+    await m.answer("☝🏻 voice mode enabled")
 
 
 @dp.message(F.text == "/voiceoff")
 async def disable_voice(m: types.Message):
     """Disable voice responses for the user."""
-    VOICE_USERS.discard(str(m.from_user.id))
-    await m.answer("voice mode disabled")
+    user_id = str(m.from_user.id)
+    VOICE_USERS.discard(user_id)
+    lang = get_user_language(user_id, m.text or "", m.from_user.language_code)
+    await genesis6_report(user_id, m.text or "", lang)
+    await m.answer("☝🏻 voice mode disabled")
 
 
 # --- Utility Commands ---
@@ -590,11 +638,12 @@ async def command_dive(m: types.Message):
     """Trigger Perplexity search via /dive command."""
     user_id = str(m.from_user.id)
     query = m.text[5:].strip() if m.text else ""
+    lang = get_user_language(user_id, query, m.from_user.language_code)
+    await genesis6_report(user_id, query or m.text or "", lang)
     if not query:
         DIVE_WAITING.add(user_id)
-        await m.answer("❓")
+        await m.answer("☝🏻 ❓")
         return
-    lang = get_user_language(user_id, query, m.from_user.language_code)
     await run_deep_dive(m.chat.id, user_id, query, lang)
 
 
@@ -603,15 +652,18 @@ async def command_imagine(m: types.Message):
     """Generate an image from text description."""
     user_id = str(m.from_user.id)
     prompt = m.text[8:].strip() if m.text else ""
-    if not prompt:
-        await m.answer("❓")
-        return
     lang = get_user_language(user_id, prompt, m.from_user.language_code)
+    profile = await genesis6_report(user_id, prompt or m.text or "", lang)
+    if not prompt:
+        await m.answer("☝🏻 ❓")
+        return
     async with ChatActionSender(bot=bot, chat_id=m.chat.id, action="upload_photo"):
         url = await asyncio.to_thread(imagine, prompt)
     comment = "vision crystallized"
+    if profile:
+        comment = await process_with_assistant(comment, "", lang, profile)
     twist = await genesis2_sonar_filter(prompt, comment, lang)
-    caption = f"{comment}\n\n🜂 Investigative Twist → {twist}"
+    caption = f"☝🏻 {comment}\n\n🜂 Investigative Twist → {twist}"
     await m.answer_photo(url, caption=caption)
     await memory.save(user_id, f"imagine: {prompt}", caption + f"\n{url}")
     save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": prompt, "response": caption})
@@ -620,15 +672,21 @@ async def command_imagine(m: types.Message):
 @dp.message(F.text == "/coder")
 async def enable_coder(m: types.Message):
     """Enable coder mode for the user."""
-    CODER_USERS.add(str(m.from_user.id))
-    await m.answer("coder mode enabled")
+    user_id = str(m.from_user.id)
+    CODER_USERS.add(user_id)
+    lang = get_user_language(user_id, m.text or "", m.from_user.language_code)
+    await genesis6_report(user_id, m.text or "", lang)
+    await m.answer("☝🏻 coder mode enabled")
 
 
 @dp.message(F.text == "/coderoff")
 async def disable_coder(m: types.Message):
     """Disable coder mode for the user."""
-    CODER_USERS.discard(str(m.from_user.id))
-    await m.answer("coder mode disabled")
+    user_id = str(m.from_user.id)
+    CODER_USERS.discard(user_id)
+    lang = get_user_language(user_id, m.text or "", m.from_user.language_code)
+    await genesis6_report(user_id, m.text or "", lang)
+    await m.answer("☝🏻 coder mode disabled")
 
 # --- Document Handler ---
 @dp.message(F.document)
@@ -638,9 +696,10 @@ async def handle_document(m: types.Message):
     chat_id = m.chat.id
     safe_name = sanitize_filename(m.document.file_name)
     lang = get_user_language(user_id, m.caption or "", m.from_user.language_code)
+    profile = await genesis6_report(user_id, m.caption or safe_name, lang)
     try:
         if m.document.file_size and m.document.file_size > MAX_FILE_SIZE:
-            await m.answer("file too large")
+            await m.answer("☝🏻 file too large")
             return
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
             ARTIFACTS_DIR.mkdir(exist_ok=True)
@@ -649,6 +708,8 @@ async def handle_document(m: types.Message):
             processed = await parse_and_store_file(str(file_path))
             match = re.search(r"Summary: (.*)\nRelevance:", processed, re.DOTALL)
             summary = match.group(1).strip() if match else processed[:200]
+            if profile:
+                summary = await process_with_assistant(summary, "", lang, profile)
             twist = await genesis2_sonar_filter(safe_name, summary, lang)
             reply = summary
             if twist:
@@ -672,7 +733,7 @@ async def handle_document(m: types.Message):
         await send_split_message(bot, chat_id=chat_id, text=reply)
     except Exception as e:
         logger.error(f"File processing failed: {e}")
-        await m.answer(f"file error: {e}")
+        await m.answer(f"☝🏻 file error: {e}")
 
 # --- Message Handler ---
 @dp.message()
@@ -692,20 +753,25 @@ async def handle_message(m: types.Message):
         chat_id = m.chat.id
         private = m.chat.type == "private"
 
+        lang = get_user_language(user_id, text, m.from_user.language_code)
         if is_rate_limited(user_id):
+            await genesis6_report(user_id, text, lang)
             await m.answer(
-                "⚠️ Вы отправляете сообщения слишком часто. Подождите минуту и попробуйте снова."
+                "☝🏻 ⚠️ Вы отправляете сообщения слишком часто. Подождите минуту и попробуйте снова."
             )
             return
+
+        profile = await genesis6_report(user_id, text, lang)
 
         # Handle incoming photos via vision utility
         if m.photo:
             file_id = m.photo[-1].file_id
             file_info = await bot.get_file(file_id)
             image_url = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}/{file_info.file_path}"
-            lang = get_user_language(user_id, text or "", m.from_user.language_code)
             async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
                 description = await asyncio.to_thread(analyze_image, image_url)
+                if profile:
+                    description = await process_with_assistant(description, "", lang, profile)
                 twist = await genesis2_sonar_filter("photo", description, lang)
             reply = f"{description}\n\n🜂 Investigative Twist → {twist}"
             await memory.save(user_id, f"photo: {image_url}", reply)
@@ -723,15 +789,15 @@ async def handle_message(m: types.Message):
         # Handle pending deep dive requests
         if user_id in DIVE_WAITING:
             DIVE_WAITING.discard(user_id)
-            lang = get_user_language(user_id, text, m.from_user.language_code)
             await run_deep_dive(chat_id, user_id, text, lang)
             return
 
         # Handle coder mode
         if user_id in CODER_USERS:
-            lang = get_user_language(user_id, text, m.from_user.language_code)
             async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
                 result = await interpret_code(text)
+                if profile:
+                    result = await process_with_assistant(result, "", lang, profile)
                 twist = await genesis2_sonar_filter(text, result, lang)
             reply = f"{result}\n\n🜂 Investigative Twist → {twist}"
             await memory.save(user_id, text, reply)
@@ -763,11 +829,10 @@ async def handle_message(m: types.Message):
         vector_ctx = "\n".join(await memory.search_memory(user_id, text))
         artifact_ctx = artifact_cache.get_all_text()
         system_ctx = artifact_ctx + "\n" + mem_ctx + "\n" + vector_ctx
-        lang = get_user_language(user_id, text, m.from_user.language_code)
 
         # 2) Process with Assistant API and apply reasoning filters
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
-            draft = await process_with_assistant(text, system_ctx, lang)
+            draft = await process_with_assistant(text, system_ctx, lang, profile)
             twist = await genesis2_sonar_filter(text, draft, lang)
             deep_dive = ""
             if (complexity == 3 or FORCE_DEEP_DIVE) and settings.PPLX_API_KEY:
@@ -812,7 +877,7 @@ async def handle_message(m: types.Message):
         await dayandnight.ensure_daily_entry()
     except Exception as e:
         logger.error(f"Error in handle_message: {e}")
-        await m.answer(f"I encountered an error while processing your message: {str(e)}")
+        await m.answer(f"☝🏻 I encountered an error while processing your message: {str(e)}")
 
 # --- Webhook setup ---
 async def on_startup(app):
