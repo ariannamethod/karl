@@ -10,7 +10,14 @@ from typing import Optional
 from openai import OpenAI
 
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key) if api_key else None
+
+# Root directory of the repository for path validation
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Message returned when attempting to read outside of the repository
+ACCESS_DENIED_MESSAGE = "Access to files outside the repository is denied."
 
 # Grokky character for the code interpreter mode
 INSTRUCTIONS = (
@@ -36,6 +43,9 @@ class GrokkyCoder:
         self.history: deque[str] = deque(maxlen=max_history)
 
     async def _ask(self, prompt: str) -> str:
+        if client is None:
+            return "OpenAI API key not configured."
+
         conversation = "\n".join([*self.history, prompt])
         try:  # pragma: no cover - network
             response = await asyncio.to_thread(
@@ -68,7 +78,10 @@ class GrokkyCoder:
 
     async def analyze(self, code_or_path: str | Path) -> str:
         if os.path.isfile(str(code_or_path)):
-            code = Path(code_or_path).read_text(encoding="utf-8")
+            file_path = Path(code_or_path).resolve()
+            if REPO_ROOT not in file_path.parents and file_path != REPO_ROOT:
+                return ACCESS_DENIED_MESSAGE
+            code = file_path.read_text(encoding="utf-8")
         else:
             code = str(code_or_path)
         prompt = f"Review the following code and suggest improvements:\n{code}"
