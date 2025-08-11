@@ -80,7 +80,7 @@ client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 # Will be filled at startup
 ASSISTANT_ID = None
 
-vector_store = create_vector_store(max_size=1000)
+vector_store = create_vector_store(max_size=settings.VECTOR_STORE_MAX_SIZE)
 memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 # Lower the likelihood of spontaneous additions
 AFTERTHOUGHT_CHANCE = 0.02

@@ -1,6 +1,19 @@
 from dataclasses import dataclass
 import os
 
+
+def _get_vector_store_max_size() -> int | None:
+    value = os.getenv("VECTOR_STORE_MAX_SIZE")
+    if value is None:
+        return 1000
+    if value.lower() == "none":
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return 1000
+
+
 @dataclass
 class Settings:
     TELEGRAM_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
@@ -17,5 +30,7 @@ class Settings:
     RATE_LIMIT_COUNT: int = int(os.getenv("RATE_LIMIT_COUNT", 20))
     RATE_LIMIT_PERIOD: float = float(os.getenv("RATE_LIMIT_PERIOD", 60))
     RATE_LIMIT_DELAY: float = float(os.getenv("RATE_LIMIT_DELAY", 0))
+    VECTOR_STORE_MAX_SIZE: int | None = _get_vector_store_max_size()
+
 
 settings = Settings()

@@ -119,6 +119,7 @@ class LocalVectorStore(BaseVectorStore):
         self.persist_path = persist_path
         # store as OrderedDict {id: (text, user_id, metadata)} to track insertion order
         self._store: "OrderedDict[str, Tuple[str, str | None, Dict | None]]" = OrderedDict()
+        self._save_task: asyncio.Task | None = None
         if self.persist_path and os.path.exists(self.persist_path):
             try:
                 with open(self.persist_path, "r", encoding="utf-8") as f:
@@ -149,8 +150,14 @@ class LocalVectorStore(BaseVectorStore):
         if id in self._store:
             self._store.move_to_end(id)
         self._store[id] = (text, user_id, metadata)
+        # Evict the oldest entry when exceeding ``max_size``
         if self.max_size is not None and len(self._store) > self.max_size:
             self._store.popitem(last=False)
+        # Persist asynchronously if configured
+        if self.persist_path:
+            if self._save_task and not self._save_task.done():
+                self._save_task.cancel()
+            self._save_task = asyncio.create_task(asyncio.to_thread(self._save))
 
     async def search(self, query: str, top_k: int = 5, *, user_id: str | None = None) -> List[str]:
         scored: List[Tuple[str, float]] = []
@@ -165,7 +172,9 @@ class LocalVectorStore(BaseVectorStore):
         return [text for text, _ in scored[:top_k]]
 
 
-def create_vector_store(max_size: int | None = 1000, persist_path: str | None = None) -> BaseVectorStore:
+def create_vector_store(max_size: int | None = None, persist_path: str | None = None) -> BaseVectorStore:
+    if max_size is None:
+        max_size = settings.VECTOR_STORE_MAX_SIZE
     if (
         Pinecone
         and settings.OPENAI_API_KEY
