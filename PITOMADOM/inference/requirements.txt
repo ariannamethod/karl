@@ -1,5 +1,0 @@
-torch==2.4.1
-safetensors==0.4.5
-flask
-openai
-tqdm
