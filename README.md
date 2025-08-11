@@ -124,6 +124,10 @@ When invoked over a repository, `create_repo_snapshot` walks every file (excludi
 - `vision.py` – image analysis and commentary.
 - `voice.py` – text‑to‑speech and audio reply handling.
 - `repo_monitor.py` – watches the repository for changes and triggers context updates.
+- `deepdiving.py` – Perplexity search with Genesis2 commentary.
+- `dayandnight.py` – daily reflection and memory pulse.
+- `complexity.py` – complexity and entropy logging for every turn.
+- `knowtheworld.py` – world news immersion and analysis.
 
 
 ### Imagine — Intuitive Image Synthesis
@@ -205,6 +209,65 @@ This algorithm translates the amorphous notion of 'resonance' into mathematics: 
 Error handling routes failed API calls to a daily log within a `failures/` directory, preventing exceptions from collapsing the weighting mechanism. Random perturbations ensure the system avoids deterministic traps.
 
 By exposing a simple interface that returns context-tuned probability vectors, `dynamic_weights` enables downstream modules to allocate computational resources adaptively, realising a soft form of attention scheduling without heavy neural infrastructure.
+
+
+### deepdiving.py — Perplexity Retrieval with Investigative Commentary
+
+`deepdiving.py` serves as Indiana’s dedicated link to the Perplexity search API, letting the agent tap into a broad corpus when a conversation requires fresh factual ground.
+
+The central `perplexity_search` coroutine prepares a JSON payload with model choice, token budget, and a research‑oriented system prompt; API keys are read from the environment to keep credentials out of the repository.
+
+An asynchronous `httpx` client dispatches the request and respects a configurable timeout so the bot’s event loop stays responsive even when the external service slows down.
+
+Returned text is trimmed and scanned for URLs, merging explicit citations with regex matches to yield a clean list of sources alongside the narrative answer.
+
+When a user issues the `/dive` command, `run_deep_dive` in `main.py` calls this utility to retrieve the summary and references that anchor the exploration.
+
+The summary is then routed through `genesis2_sonar_filter`, which composes an “Investigative Twist” that critiques or contextualises the findings against Indiana’s prior artefacts.
+
+The final message concatenates summary, twist, and links before being saved to memory and, if requested, voiced back to the user, ensuring the research trail remains auditable.
+
+Robust error handling around API calls guards against missing keys or HTTP failures, letting Indiana fall back gracefully without freezing deep‑dive sessions.
+
+### dayandnight.py — Circadian Memory Logging
+
+`dayandnight.py` keeps a daily heartbeat by recording one reflection per day inside the vector store, giving Indiana a temporal spine.
+
+Helper functions fetch or store the date of the last log entry, relying on Pinecone or its local stand‑in to decide whether today’s pulse has already been captured.
+
+`default_reflection` asks GPT‑4o for a short, impersonal digest of the day, and `ensure_daily_entry` writes the result whenever a new date appears.
+
+`start_daily_task` schedules this check every twenty‑four hours and swallows transient errors, so the rhythm persists even when the agent is idle.
+
+### complexity.py — Thought Complexity Metrics
+
+The `complexity.py` module introduces a `ThoughtComplexityLogger` that tracks how intricate each conversational turn becomes.
+
+`log_turn` records timestamp, original message, a discrete complexity scale, and a floating‑point entropy estimate, appending the data to an in‑memory ledger.
+
+The `recent` method exposes the trailing slice of this ledger so that downstream modules can inspect the immediate cognitive history.
+
+Complexity is inferred heuristically: keywords like “why” or “paradox” and sheer length lift the scale from 1 to a cap of 3, sketching a coarse lattice of depth.
+
+Entropy derives from lexical diversity, counting unique tokens and normalising by forty to mimic a bounded Shannon measure.
+
+`main.py` logs these metrics for each user message, and turns rated highly can trigger `genesis3_deep_dive`, tying the logger to Indiana’s inferential core.
+
+The arrangement mirrors a discrete dynamical system where complexity resembles energy and entropy signals dispersion, inviting mathematical analysis of conversational phase changes.
+
+Even as a lightweight heuristic, the logger lays a scientific scaffold for studying cognitive dynamics and auditing how genesis3 allocates reasoning effort.
+
+### knowtheworld.py — Global News Immersion
+
+`knowtheworld.py` immerses Indiana in daily world events by synthesising news into stored insights.
+
+The module estimates location via an external IP service and fetches recent chat fragments to provide conversational context.
+
+`_gather_news` prompts GPT‑4o for a digest of local and international headlines, while `_analyse_and_store` threads those headlines through recent discussions to surface hidden connections.
+
+The resulting insight is written into the vector store so later exchanges can reference concrete geopolitical threads.
+
+`start_world_task` runs the entire cycle at random times each day, keeping Indiana’s worldview aligned with the shifting external landscape.
 
 
 ⸻
