@@ -3,8 +3,10 @@ import asyncio
 import random
 import logging
 import re
+import hashlib
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import Optional
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler
@@ -70,7 +72,11 @@ client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 ASSISTANT_ID = None
 
 vector_store = create_vector_store()
-memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
+memory = MemoryManager(
+    db_path="lighthouse_memory.db",
+    vectorstore=vector_store,
+    max_records=settings.MAX_MEMORY_RECORDS,
+)
 # Lower the likelihood of spontaneous additions
 AFTERTHOUGHT_CHANCE = 0.02
 FOLLOWUP_CHANCE = 0.05
@@ -84,6 +90,19 @@ complexity_logger = ThoughtComplexityLogger()
 
 # Force Genesis-3 deep dive on every response when enabled
 FORCE_DEEP_DIVE = False
+
+LOG_PRIVATE = settings.LOG_PRIVATE_CHATS
+ANONYMIZE_PRIVATE = settings.ANONYMIZE_PRIVATE_DATA
+
+
+def maybe_anonymize_user(user_id: str, private: bool) -> Optional[str]:
+    """Return sanitized user ID or None if logging is disabled."""
+    if private:
+        if not LOG_PRIVATE:
+            return None
+        if ANONYMIZE_PRIVATE:
+            return hashlib.sha256(user_id.encode()).hexdigest()[:10]
+    return user_id
 
 
 def get_user_language(user_id: str, text: str) -> str:
@@ -143,7 +162,7 @@ async def cleanup_old_voice_files():
         await asyncio.sleep(86400)
 
 
-async def run_deep_dive(chat_id: int, user_id: str, query: str, lang: str) -> None:
+async def run_deep_dive(chat_id: int, user_id: str, query: str, lang: str, private: bool) -> None:
     """Execute Perplexity search and respond with summary, sources, and insight."""
     try:
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
@@ -158,13 +177,17 @@ async def run_deep_dive(chat_id: int, user_id: str, query: str, lang: str) -> No
         if sources:
             parts.append("\n\n🔗 Sources:\n" + "\n".join(f"• {s}" for s in sources))
         reply = "".join(parts)
-        await memory.save(user_id, f"deep dive: {query}", reply)
-        save_note({
-            "time": datetime.now(timezone.utc).isoformat(),
-            "user": user_id,
-            "query": query,
-            "response": reply,
-        })
+        sanitized = maybe_anonymize_user(user_id, private)
+        if sanitized:
+            await memory.save(sanitized, f"deep dive: {query}", reply)
+            save_note(
+                {
+                    "time": datetime.now(timezone.utc).isoformat(),
+                    "user": sanitized,
+                    "query": query,
+                    "response": reply,
+                }
+            )
         if user_id in VOICE_USERS and client:
             try:
                 audio = await text_to_voice(client, reply)
@@ -398,8 +421,16 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
             f"\nUSER SAID: {original}\nYOU SAID: {prev_reply}"
         )
         summary = await process_with_assistant(summary_prompt, "", lang)
-        await memory.save(user_id, summary, text)
-        save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "followup": text})
+        sanitized = maybe_anonymize_user(user_id, private)
+        if sanitized:
+            await memory.save(sanitized, summary, text)
+            save_note(
+                {
+                    "time": datetime.now(timezone.utc).isoformat(),
+                    "user": sanitized,
+                    "followup": text,
+                }
+            )
 
         # Используем новую функцию send_split_message вместо разбиения и цикла
         await send_split_message(bot, chat_id, text)
@@ -448,11 +479,17 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
             f"\nUSER SAID: {original}\nAFTERTHOUGHT: {text}"
         )
         summary = await process_with_assistant(summary_prompt, "", lang)
-        await memory.save(user_id, summary, text)
+        sanitized = maybe_anonymize_user(user_id, private)
+        if sanitized:
+            await memory.save(sanitized, summary, text)
 
-        # Save to journal
-        entry = {"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "afterthought": text}
-        save_note(entry)
+            # Save to journal
+            entry = {
+                "time": datetime.now(timezone.utc).isoformat(),
+                "user": sanitized,
+                "afterthought": text,
+            }
+            save_note(entry)
 
         # Используем новую функцию send_split_message
         await send_split_message(bot, chat_id, text)
@@ -503,7 +540,8 @@ async def command_dive(m: types.Message):
         await m.answer("❓")
         return
     lang = get_user_language(user_id, query)
-    await run_deep_dive(m.chat.id, user_id, query, lang)
+    private = m.chat.type == "private"
+    await run_deep_dive(m.chat.id, user_id, query, lang, private)
 
 
 @dp.message(F.text.startswith("/imagine"))
@@ -515,14 +553,24 @@ async def command_imagine(m: types.Message):
         await m.answer("❓")
         return
     lang = get_user_language(user_id, prompt)
+    private = m.chat.type == "private"
     async with ChatActionSender(bot=bot, chat_id=m.chat.id, action="upload_photo"):
         url = await asyncio.to_thread(imagine, prompt)
     comment = "vision crystallized"
     twist = await genesis2_sonar_filter(prompt, comment, lang)
     caption = f"{comment}\n\n🜂 Investigative Twist → {twist}"
     await m.answer_photo(url, caption=caption)
-    await memory.save(user_id, f"imagine: {prompt}", caption + f"\n{url}")
-    save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": prompt, "response": caption})
+    sanitized = maybe_anonymize_user(user_id, private)
+    if sanitized:
+        await memory.save(sanitized, f"imagine: {prompt}", caption + f"\n{url}")
+        save_note(
+            {
+                "time": datetime.now(timezone.utc).isoformat(),
+                "user": sanitized,
+                "query": prompt,
+                "response": caption,
+            }
+        )
 
 
 @dp.message(F.text == "/coder")
@@ -546,6 +594,7 @@ async def handle_document(m: types.Message):
     chat_id = m.chat.id
     safe_name = sanitize_filename(m.document.file_name)
     lang = get_user_language(user_id, safe_name)
+    private = m.chat.type == "private"
     try:
         if m.document.file_size and m.document.file_size > MAX_FILE_SIZE:
             await m.answer("file too large")
@@ -561,15 +610,17 @@ async def handle_document(m: types.Message):
             reply = summary
             if twist:
                 reply += f"\n\n🜂 Investigative Twist → {twist}"
-        await memory.save(user_id, f"file: {safe_name}", reply)
-        save_note(
-            {
-                "time": datetime.now(timezone.utc).isoformat(),
-                "user": user_id,
-                "query": safe_name,
-                "response": reply,
-            }
-        )
+        sanitized = maybe_anonymize_user(user_id, private)
+        if sanitized:
+            await memory.save(sanitized, f"file: {safe_name}", reply)
+            save_note(
+                {
+                    "time": datetime.now(timezone.utc).isoformat(),
+                    "user": sanitized,
+                    "query": safe_name,
+                    "response": reply,
+                }
+            )
         if user_id in VOICE_USERS and client:
             try:
                 audio_bytes = await text_to_voice(client, reply)
@@ -599,6 +650,7 @@ async def handle_message(m: types.Message):
         user_id = str(m.from_user.id)
         chat_id = m.chat.id
         private = m.chat.type == "private"
+        sanitized = maybe_anonymize_user(user_id, private)
 
         # Handle incoming photos via vision utility
         if m.photo:
@@ -610,8 +662,16 @@ async def handle_message(m: types.Message):
                 description = await asyncio.to_thread(analyze_image, image_url)
                 twist = await genesis2_sonar_filter("photo", description, lang)
             reply = f"{description}\n\n🜂 Investigative Twist → {twist}"
-            await memory.save(user_id, f"photo: {image_url}", reply)
-            save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": image_url, "response": reply})
+            if sanitized:
+                await memory.save(sanitized, f"photo: {image_url}", reply)
+                save_note(
+                    {
+                        "time": datetime.now(timezone.utc).isoformat(),
+                        "user": sanitized,
+                        "query": image_url,
+                        "response": reply,
+                    }
+                )
             if user_id in VOICE_USERS and client:
                 try:
                     audio_bytes = await text_to_voice(client, reply)
@@ -626,7 +686,7 @@ async def handle_message(m: types.Message):
         if user_id in DIVE_WAITING:
             DIVE_WAITING.discard(user_id)
             lang = get_user_language(user_id, text)
-            await run_deep_dive(chat_id, user_id, text, lang)
+            await run_deep_dive(chat_id, user_id, text, lang, private)
             return
 
         # Handle coder mode
@@ -636,8 +696,16 @@ async def handle_message(m: types.Message):
                 result = await interpret_code(text)
                 twist = await genesis2_sonar_filter(text, result, lang)
             reply = f"{result}\n\n🜂 Investigative Twist → {twist}"
-            await memory.save(user_id, text, reply)
-            save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
+            if sanitized:
+                await memory.save(sanitized, text, reply)
+                save_note(
+                    {
+                        "time": datetime.now(timezone.utc).isoformat(),
+                        "user": sanitized,
+                        "query": text,
+                        "response": reply,
+                    }
+                )
             if user_id in VOICE_USERS and client:
                 try:
                     audio_bytes = await text_to_voice(client, reply)
@@ -689,8 +757,16 @@ async def handle_message(m: types.Message):
             reply = "".join(parts)
 
         # 3) Save to memory and notes
-        await memory.save(user_id, text, reply)
-        save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
+        if sanitized:
+            await memory.save(sanitized, text, reply)
+            save_note(
+                {
+                    "time": datetime.now(timezone.utc).isoformat(),
+                    "user": sanitized,
+                    "query": text,
+                    "response": reply,
+                }
+            )
 
         # 4) Send response
         if user_id in VOICE_USERS and client:

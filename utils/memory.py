@@ -6,9 +6,16 @@ from typing import Optional
 from .vectorstore import BaseVectorStore, create_vector_store
 
 class MemoryManager:
-    def __init__(self, db_path: str = "memory.db", vectorstore: Optional[BaseVectorStore] = None):
+    def __init__(
+        self,
+        db_path: str = "memory.db",
+        vectorstore: Optional[BaseVectorStore] = None,
+        max_records: int = 1000,
+    ):
+        """Manage conversation memory with optional size limit."""
         self.db_path = db_path
         self.vectorstore = vectorstore or create_vector_store()
+        self.max_records = max_records
         self._db: Optional[aiosqlite.Connection] = None
         self._lock = asyncio.Lock()
 
@@ -49,6 +56,7 @@ class MemoryManager:
             (user_id, ts, query, response),
         )
         await db.commit()
+        await self._enforce_limit(db)
         if self.vectorstore:
             async def _store_vector():
                 try:
@@ -61,6 +69,21 @@ class MemoryManager:
                     pass
 
             asyncio.create_task(_store_vector())
+
+    async def _enforce_limit(self, db: aiosqlite.Connection):
+        """Ensure the memory table does not exceed the max record limit."""
+        if not self.max_records:
+            return
+        async with db.execute("SELECT COUNT(*) FROM memory") as cur:
+            (count,) = await cur.fetchone()
+        if count <= self.max_records:
+            return
+        to_delete = count - self.max_records
+        await db.execute(
+            "DELETE FROM memory WHERE rowid IN (SELECT rowid FROM memory ORDER BY timestamp ASC LIMIT ?)",
+            (to_delete,),
+        )
+        await db.commit()
 
     async def retrieve(self, user_id: str, query: str) -> str:
         """Retrieve last 5 responses for a given user as context."""

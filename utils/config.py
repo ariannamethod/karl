@@ -14,5 +14,8 @@ class Settings:
     GROUP_CHAT: str = os.getenv("GROUP_CHAT", "")
     CREATOR_CHAT: str = os.getenv("CREATOR_CHAT", "")
     PPLX_API_KEY: str = os.getenv("PPLX_API_KEY", os.getenv("PERPLEXITY_API_KEY", ""))
+    LOG_PRIVATE_CHATS: bool = os.getenv("LOG_PRIVATE_CHATS", "true").lower() != "false"
+    ANONYMIZE_PRIVATE_DATA: bool = os.getenv("ANONYMIZE_PRIVATE_DATA", "false").lower() == "true"
+    MAX_MEMORY_RECORDS: int = int(os.getenv("MAX_MEMORY_RECORDS", "1000"))
 
 settings = Settings()
