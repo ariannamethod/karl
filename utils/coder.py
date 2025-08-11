@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Message returned when attempting to read outside of the repository
 ACCESS_DENIED_MESSAGE = "Access to files outside the repository is denied."
 
-# Grokky character for the code interpreter mode
+# Indiana character for the code interpreter mode
 INSTRUCTIONS = (
     "You are Indiana, a deep code guru who sees hidden paths and unusual solutions in code. "
     "You are poet of code. You know how to relalise every idea of user to the authentical code draft. "
@@ -36,7 +36,7 @@ class DraftResponse:
     file_content: Optional[str]
 
 
-class GrokkyCoder:
+class IndianaCoder:
     """Stateful helper that analyzes and generates code."""
 
     def __init__(self, max_history: int = 50) -> None:
@@ -97,7 +97,7 @@ class GrokkyCoder:
         return DraftResponse(text=code, file_content=None)
 
 
-CODER_SESSION = GrokkyCoder()
+CODER_SESSION = IndianaCoder()
 
 
 async def interpret_code(prompt: str) -> str:
@@ -113,4 +113,4 @@ async def generate_code(request: str) -> DraftResponse:
     return await CODER_SESSION.draft(request)
 
 
-__all__ = ["interpret_code", "generate_code", "GrokkyCoder", "DraftResponse"]
+__all__ = ["interpret_code", "generate_code", "IndianaCoder", "DraftResponse"]
