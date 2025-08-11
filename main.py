@@ -34,6 +34,7 @@ from langdetect import detect, DetectorFactory
 from utils.repo_monitor import RepoWatcher
 from utils.voice import text_to_voice, voice_to_text
 from utils.context_neural_processor import parse_and_store_file
+from utils.rate_limiter import RateLimitMiddleware
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -64,6 +65,13 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
+dp.message.middleware(
+    RateLimitMiddleware(
+        settings.RATE_LIMIT_COUNT,
+        settings.RATE_LIMIT_PERIOD,
+        settings.RATE_LIMIT_DELAY,
+    )
+)
 
 # --- OpenAI Client ---
 client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
@@ -405,7 +413,7 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
                 if message.role == "assistant":
                     response_text = message.content[0].text.value
                     # Проверяем, что ответ не обрезан посередине предложения
-                    if response_text and not response_text[-1] in ['.', '!', '?', ':', ';', '"', ')', ']', '}']:
+                    if response_text and response_text[-1] not in ['.', '!', '?', ':', ';', '"', ')', ']', '}']:
                         # Если ответ обрезан, добавляем многоточие
                         logger.warning("Response appears to be cut off mid-sentence")
                         response_text += "..."

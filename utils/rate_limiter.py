@@ -1,0 +1,48 @@
+import asyncio
+import logging
+import time
+from collections import deque
+from typing import Deque, Dict
+
+from aiogram import BaseMiddleware
+from aiogram.types import Message, TelegramObject
+
+from .lru_cache import LRUCache
+
+
+class RateLimitMiddleware(BaseMiddleware):
+    """Simple per-user rate limiter.
+
+    Keeps a rolling window of message timestamps for each user and ensures
+    that no more than ``limit`` messages are processed within ``window``
+    seconds. When the limit is exceeded, the message is ignored or delayed
+    depending on ``delay``.
+    """
+
+    def __init__(self, limit: int, window: float, delay: float = 0.0, max_users: int = 1024) -> None:
+        self.limit = limit
+        self.window = window
+        self.delay = delay
+        self._users: LRUCache = LRUCache(maxlen=max_users)
+        self.logger = logging.getLogger(__name__)
+
+    async def __call__(self, handler, event: TelegramObject, data: Dict):  # type: ignore[override]
+        if isinstance(event, Message) and event.from_user:
+            user_id = str(event.from_user.id)
+            now = time.time()
+            timestamps: Deque[float] = self._users.get(user_id, deque())
+
+            # drop outdated timestamps
+            while timestamps and now - timestamps[0] > self.window:
+                timestamps.popleft()
+
+            if len(timestamps) >= self.limit:
+                self.logger.warning("Rate limit exceeded for user %s", user_id)
+                if self.delay > 0:
+                    await asyncio.sleep(self.delay)
+                    return await handler(event, data)
+                return None
+
+            timestamps.append(now)
+            self._users.set(user_id, timestamps)
+        return await handler(event, data)
