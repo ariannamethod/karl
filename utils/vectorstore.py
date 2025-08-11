@@ -3,6 +3,9 @@ import logging
 from difflib import SequenceMatcher
 from typing import Dict, List, Tuple
 import os
+import json
+import atexit
+from collections import OrderedDict
 
 from openai import AsyncOpenAI
 try:  # Optional dependency
@@ -84,12 +87,37 @@ else:  # pragma: no cover - optional
 
 
 class LocalVectorStore(BaseVectorStore):
-    def __init__(self):
-        # store as {id: (text, user_id)}
-        self._store: Dict[str, Tuple[str, str | None]] = {}
+    def __init__(self, max_size: int | None = None, persist_path: str | None = None):
+        """In-memory vector store with optional size limit and persistence."""
+        self.max_size = max_size
+        self.persist_path = persist_path
+        # store as OrderedDict {id: (text, user_id)} to track insertion order
+        self._store: "OrderedDict[str, Tuple[str, str | None]]" = OrderedDict()
+        if self.persist_path and os.path.exists(self.persist_path):
+            try:
+                with open(self.persist_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self._store = OrderedDict((k, tuple(v)) for k, v in data)
+            except Exception as e:
+                logger.error("Failed to load vector store from %s: %s", self.persist_path, e)
+        if self.persist_path:
+            atexit.register(self._save)
+
+    def _save(self):
+        if not self.persist_path:
+            return
+        try:
+            with open(self.persist_path, "w", encoding="utf-8") as f:
+                json.dump(list(self._store.items()), f)
+        except Exception as e:
+            logger.error("Failed to persist vector store: %s", e)
 
     async def store(self, id: str, text: str, *, user_id: str | None = None):
+        if id in self._store:
+            self._store.move_to_end(id)
         self._store[id] = (text, user_id)
+        if self.max_size is not None and len(self._store) > self.max_size:
+            self._store.popitem(last=False)
 
     async def search(self, query: str, top_k: int = 5, *, user_id: str | None = None) -> List[str]:
         scored: List[Tuple[str, float]] = []
@@ -102,7 +130,7 @@ class LocalVectorStore(BaseVectorStore):
         return [text for text, _ in scored[:top_k]]
 
 
-def create_vector_store() -> BaseVectorStore:
+def create_vector_store(max_size: int | None = None, persist_path: str | None = None) -> BaseVectorStore:
     if (
         Pinecone
         and settings.OPENAI_API_KEY
@@ -114,4 +142,4 @@ def create_vector_store() -> BaseVectorStore:
         except Exception as e:  # pragma: no cover - network
             logger.error("Failed to initialise remote vector store: %s", e)
     logger.warning("Using local vector store fallback")
-    return LocalVectorStore()
+    return LocalVectorStore(max_size=max_size, persist_path=persist_path)
