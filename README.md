@@ -1,8 +1,6 @@
-You’re right. Here’s the full README in English, with nothing removed, only lightly organized and standardized for Markdown.
-
 # INDIANA (Lighthouse) | Arianna Method 7.0: Anchor Protocol
 *⚡️Dedicated to LEO⚡️*  
-**Version 1.2 (Lighthouse) — Active development; this is a fixed snapshot/plateau.**
+**Version 1.2 — Active development; this is a fixed snapshot/plateau.**
 
 ---
 
