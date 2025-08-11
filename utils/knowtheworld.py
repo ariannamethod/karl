@@ -13,7 +13,7 @@ from .memory import MemoryManager
 from .config import settings
 
 
-vector_store = create_vector_store()
+vector_store = create_vector_store(max_size=1000)
 memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
 logger = logging.getLogger(__name__)

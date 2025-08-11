@@ -7,7 +7,7 @@ from openai import AsyncOpenAI
 from .vectorstore import create_vector_store
 from .config import settings
 
-vector_store = create_vector_store()
+vector_store = create_vector_store(max_size=1000)
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
 logger = logging.getLogger(__name__)
 
