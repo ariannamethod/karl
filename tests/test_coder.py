@@ -6,14 +6,14 @@ from pathlib import Path
 # Ensure project root is importable
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from utils.coder import ACCESS_DENIED_MESSAGE, GrokkyCoder  # noqa: E402
+from utils.coder import ACCESS_DENIED_MESSAGE, IndianaCoder  # noqa: E402
 
 
 def test_analyze_denies_outside_repo(tmp_path):
     outside_file = tmp_path / "code.py"
     outside_file.write_text("print('hi')", encoding="utf-8")
 
-    coder = GrokkyCoder()
+    coder = IndianaCoder()
     result = asyncio.run(coder.analyze(str(outside_file)))
     assert result == ACCESS_DENIED_MESSAGE
 
@@ -23,12 +23,12 @@ def test_analyze_allows_repo_file(monkeypatch):
     inside_file = repo_root / "tmp_test_file.py"
     inside_file.write_text("print('hi')", encoding="utf-8")
 
-    coder = GrokkyCoder()
+    coder = IndianaCoder()
 
     async def fake_ask(self, prompt: str) -> str:  # pragma: no cover - simple stub
         return "OK"
 
-    monkeypatch.setattr(GrokkyCoder, "_ask", fake_ask)
+    monkeypatch.setattr(IndianaCoder, "_ask", fake_ask)
 
     try:
         result = asyncio.run(coder.analyze(str(inside_file)))
