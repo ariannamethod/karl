@@ -12,7 +12,7 @@ from openai import OpenAI
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Grokky character for the code interpreter mode
+# Indiana character for the code interpreter mode
 INSTRUCTIONS = (
     "You are Indiana, a deep code guru who sees hidden paths and unusual solutions in code. "
     "You are poet of code. You know how to relalise every idea of user to the authentical code draft. "
@@ -29,20 +29,20 @@ class DraftResponse:
     file_content: Optional[str]
 
 
-class GrokkyCoder:
+class IndianaCoder:
     """Stateful helper that analyzes and generates code."""
 
     def __init__(self, max_history: int = 50) -> None:
         self.history: deque[str] = deque(maxlen=max_history)
 
-    async def _ask(self, prompt: str) -> str:
+    async def _ask(self, prompt: str, language: str = "en") -> str:
         conversation = "\n".join([*self.history, prompt])
         try:  # pragma: no cover - network
             response = await asyncio.to_thread(
                 client.responses.create,
                 model="gpt-4.1",
                 tools=[{"type": "code_interpreter", "container": {"type": "auto"}}],
-                instructions=INSTRUCTIONS,
+                instructions=f"{INSTRUCTIONS} Respond only in {language}.",
                 input=conversation,
             )
             text = getattr(response, "output_text", "")
@@ -66,38 +66,47 @@ class GrokkyCoder:
         self.history.append(text)
         return text.strip()
 
-    async def analyze(self, code_or_path: str | Path) -> str:
+    async def analyze(self, code_or_path: str | Path, language: str = "en") -> str:
         if os.path.isfile(str(code_or_path)):
             code = Path(code_or_path).read_text(encoding="utf-8")
         else:
             code = str(code_or_path)
         prompt = f"Review the following code and suggest improvements:\n{code}"
-        return await self._ask(prompt)
+        return await self._ask(prompt, language)
 
-    async def chat(self, message: str) -> str:
-        return await self._ask(message)
+    async def chat(self, message: str, language: str = "en") -> str:
+        return await self._ask(message, language)
 
-    async def draft(self, request: str) -> DraftResponse:
-        code = await self._ask(f"Draft code for the following request:\n{request}")
+    async def draft(self, request: str, language: str = "en") -> DraftResponse:
+        code = await self._ask(f"Draft code for the following request:\n{request}", language)
         if len(code) > TELEGRAM_CHAR_LIMIT:
             return DraftResponse(text=None, file_content=code)
         return DraftResponse(text=code, file_content=None)
 
 
-CODER_SESSION = GrokkyCoder()
+CODER_SESSION = IndianaCoder()
+
+# Backward-compatible alias
+indianacoder = IndianaCoder
 
 
-async def interpret_code(prompt: str) -> str:
+async def interpret_code(prompt: str, language: str = "en") -> str:
     """Interpret code or handle follow-up questions with context memory."""
     markers = ["def ", "class ", "import ", "\n"]
     if os.path.isfile(prompt) or any(m in prompt for m in markers):
-        return await CODER_SESSION.analyze(prompt)
-    return await CODER_SESSION.chat(prompt)
+        return await CODER_SESSION.analyze(prompt, language)
+    return await CODER_SESSION.chat(prompt, language)
 
 
-async def generate_code(request: str) -> DraftResponse:
+async def generate_code(request: str, language: str = "en") -> DraftResponse:
     """Generate code from a description, falling back to a file when too long."""
-    return await CODER_SESSION.draft(request)
+    return await CODER_SESSION.draft(request, language)
 
 
-__all__ = ["interpret_code", "generate_code", "GrokkyCoder", "DraftResponse"]
+__all__ = [
+    "interpret_code",
+    "generate_code",
+    "IndianaCoder",
+    "indianacoder",
+    "DraftResponse",
+]

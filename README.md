@@ -88,7 +88,7 @@ With this stage, Indiana-AM begins to show emergent reasoning: not just synthesi
 
 ## 4. Coder Mode
 
-Indiana includes a dedicated coder persona powered by `utils/coder.py`. The module exposes an asynchronous **`GrokkyCoder`** class that keeps conversational history and communicates with OpenAI’s Responses API through the **code-interpreter** tool. Users can inspect files, request refactors, or maintain an evolving dialogue about algorithms, all while the system preserves context between turns.
+Indiana includes a dedicated coder persona powered by `utils/coder.py`. The module exposes an asynchronous **`IndianaCoder`** class that keeps conversational history and communicates with OpenAI’s Responses API through the **code-interpreter** tool. Users can inspect files, request refactors, or maintain an evolving dialogue about algorithms, all while the system preserves context between turns and answers in the user's language.
 
 Function `interpret_code` detects whether input is a path or inline snippet and routes it to analysis or free-form chat. For drafting, `generate_code` returns either a short textual snippet or a full file when the answer exceeds Telegram’s length limits. This dual interface allows Indiana to act as a miniature pair-programmer inside any chat thread.
 
