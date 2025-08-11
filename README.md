@@ -6,7 +6,7 @@
 
 Indiana-AM is stepping into the open as a research expedition. This project is now reaching beyond its laboratory origins and inviting the world to walk through its unfolding dig sites.
 
-You can now talk directly with Indiana on Telegram—follow the trail here: https://github.com/ariannamethod/Indiana-AM and begin your own field conversation.
+You can now talk directly with Indiana on Telegram—follow the trail here: [https://t.me/whothelastsawabot] and begin your own field conversation.
 
 Contributions and proposals of every kind are welcome. Whether you want to refine the code, document a discovery, or chart an unexplored semantic ruin, your participation shapes the journey.
 
