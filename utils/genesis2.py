@@ -3,6 +3,7 @@ import random
 import textwrap
 from datetime import datetime, timezone
 import re
+import logging
 
 from .config import settings  # settings.PPLX_API_KEY должен быть определён
 
@@ -15,6 +16,8 @@ headers = {
     "Authorization": f"Bearer {settings.PPLX_API_KEY}",
     "Content-Type": "application/json",
 }
+
+logger = logging.getLogger(__name__)
 
 
 # Символы, которыми должно заканчиваться корректное предложение
@@ -50,8 +53,7 @@ async def _call_sonar(messages: list) -> str:
         try:
             resp.raise_for_status()
         except Exception:
-            # Дебаг: показать тело ошибки API
-            print("[Genesis-2] Sonar HTTP error:", resp.text)
+            logger.error("[Genesis-2] Sonar HTTP error: %s", resp.text, exc_info=True)
             raise
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
@@ -71,8 +73,8 @@ async def genesis2_sonar_filter(user_prompt: str, draft_reply: str, language: st
             twist = twist.rstrip() + "..."
 
         return twist
-    except Exception as e:
-        print(f"[Genesis-2] Sonar fail {e} @ {datetime.now(timezone.utc).isoformat()}")
+    except Exception:
+        logger.error("[Genesis-2] Sonar fail", exc_info=True)
         return ""
 
 

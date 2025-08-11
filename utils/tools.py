@@ -99,15 +99,16 @@ async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
             # Небольшая задержка между сообщениями для лучшего восприятия
             if i < len(parts) - 1:
                 await asyncio.sleep(0.5)
-        except Exception as e:
-            logger.error(f"Error sending message part {i+1}/{len(parts)}: {str(e)}")
-            # Попытаемся отправить сообщение об ошибке
+        except Exception:
+            logger.error(
+                "Error sending message part %s/%s", i + 1, len(parts), exc_info=True
+            )
             try:
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=f"⚠️ Возникла ошибка при отправке части сообщения: {str(e)}"
+                    text="⚠️ Произошла внутренняя ошибка, мы уже изучаем её"
                 )
             except Exception:
-                pass
+                logger.error("Failed to notify user about message part error", exc_info=True)
 
     return sent_messages[0] if len(sent_messages) == 1 else sent_messages

@@ -63,8 +63,8 @@ async def genesis3_deep_dive(
             resp = await cli.post(SONAR_PRO_URL, headers=_headers(), json=payload)
             try:
                 resp.raise_for_status()
-            except Exception as e:
-                logger.error(f"[Genesis-3] HTTP error: {e}\n{resp.text}")
+            except Exception:
+                logger.error("[Genesis-3] HTTP error: %s", resp.text, exc_info=True)
                 raise
             content = resp.json()["choices"][0]["message"]["content"].strip()
             final = _extract_final_response(content)
@@ -75,7 +75,6 @@ async def genesis3_deep_dive(
                 final += "..."
                 
             return f"🔍 {final}"
-    except Exception as e:
-        logger.error(f"[Genesis-3] Failed to complete deep dive: {e}")
-        # Возвращаем сообщение об ошибке вместо того, чтобы просто пропустить анализ
-        return "🔍 Глубокий анализ не удался из-за технической ошибки."
+    except Exception:
+        logger.error("[Genesis-3] Failed to complete deep dive", exc_info=True)
+        return "Произошла внутренняя ошибка, мы уже изучаем её"

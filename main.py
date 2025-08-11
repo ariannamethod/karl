@@ -35,6 +35,7 @@ from utils.repo_monitor import RepoWatcher
 from utils.voice import text_to_voice, voice_to_text
 from utils.context_neural_processor import parse_and_store_file
 from utils.rate_limiter import RateLimitMiddleware
+from utils.error_handler import error_handler
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +73,7 @@ dp.message.middleware(
         settings.RATE_LIMIT_DELAY,
     )
 )
+dp.errors.register(error_handler)
 
 # --- OpenAI Client ---
 client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
@@ -130,6 +132,7 @@ def get_user_language(user_id: str, text: str, language_code: str | None = None)
         try:
             lang = detect(text)
         except Exception:
+            logger.error("Language detection failed", exc_info=True)
             lang = None
     if language_code:
         language_code = language_code.split("-")[0]
@@ -165,8 +168,8 @@ class ArtifactCache:
                 if p.is_file():
                     try:
                         texts.append(self.get(p.name))
-                    except Exception as e:
-                        logger.error(f"Error reading artifact {p}: {e}")
+                    except Exception:
+                        logger.error("Error reading artifact %s", p, exc_info=True)
         return "\n".join(texts)
 
     def clear(self) -> None:
@@ -194,8 +197,8 @@ async def cleanup_old_voice_files():
             for f in VOICE_DIR.glob("*"):
                 if f.is_file() and datetime.fromtimestamp(f.stat().st_mtime, timezone.utc) < cutoff:
                     f.unlink()
-        except Exception as e:
-            logger.error(f"Voice cleanup error: {e}")
+        except Exception:
+            logger.error("Voice cleanup error", exc_info=True)
         await asyncio.sleep(86400)
 
 
@@ -204,8 +207,8 @@ async def cleanup_user_langs():
     while True:
         try:
             USER_LANGS.cleanup(LANG_CACHE_TTL)
-        except Exception as e:
-            logger.error(f"Lang cache cleanup error: {e}")
+        except Exception:
+            logger.error("Lang cache cleanup error", exc_info=True)
         await asyncio.sleep(3600)
 
 
@@ -236,12 +239,12 @@ async def run_deep_dive(chat_id: int, user_id: str, query: str, lang: str) -> No
                 audio = await text_to_voice(client, reply)
                 voice_file = types.BufferedInputFile(audio, filename="reply.ogg")
                 await bot.send_voice(chat_id, voice_file)
-            except Exception as e:
-                logger.error(f"Voice synthesis failed: {e}")
+            except Exception:
+                logger.error("Voice synthesis failed", exc_info=True)
         await send_split_message(bot, chat_id=chat_id, text=reply)
-    except Exception as e:
-        logger.error(f"Perplexity search failed: {e}")
-        await send_split_message(bot, chat_id=chat_id, text=f"search error: {e}")
+    except Exception:
+        logger.error("Perplexity search failed", exc_info=True)
+        await send_split_message(bot, chat_id=chat_id, text="Произошла внутренняя ошибка, мы уже изучаем её")
 
 async def setup_bot_commands() -> None:
     """Configure bot commands for menu button."""
@@ -257,8 +260,8 @@ async def setup_bot_commands() -> None:
     ]
     try:
         await bot.set_my_commands(commands)
-    except Exception as e:
-        logger.error(f"Failed to set bot commands: {e}")
+    except Exception:
+        logger.error("Failed to set bot commands", exc_info=True)
 
 def save_note(entry: dict):
     """Save an entry to the journal file."""
@@ -335,8 +338,8 @@ async def setup_assistant():
             await client.beta.assistants.retrieve(ASSISTANT_ID)
             logger.info(f"Using existing assistant: {ASSISTANT_ID}")
             return
-        except Exception as e:
-            logger.error(f"Error retrieving assistant: {e}")
+        except Exception:
+            logger.error("Error retrieving assistant", exc_info=True)
             ASSISTANT_ID = None
 
     if not ASSISTANT_ID:
@@ -350,8 +353,8 @@ async def setup_assistant():
             ASSISTANT_ID = resp.id
             data["assistant_id"] = ASSISTANT_ID
             logger.info(f"Created new assistant: {ASSISTANT_ID}")
-        except Exception as e:
-            logger.error(f"Error creating assistant: {e}")
+        except Exception:
+            logger.error("Error creating assistant", exc_info=True)
             raise
 
     with open("assistants.json", "w") as f:
@@ -420,12 +423,12 @@ async def process_with_assistant(prompt: str, context: str = "", language: str =
                     return response_text
 
             return "No response generated."
-        except Exception as e:
+        except Exception:
             logger.error(
-                "Assistant attempt %s failed: %s", attempt + 1, e
+                "Assistant attempt %s failed", attempt + 1, exc_info=True
             )
             if attempt == 2:
-                return f"I encountered an error while processing your request: {str(e)}"
+                return "Произошла внутренняя ошибка, мы уже изучаем её"
             await asyncio.sleep(2 ** attempt)
 
 # --- Delayed responses ---
@@ -449,8 +452,8 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
             logger.info("Attempting Genesis3 deep dive for followup")
             deep = await genesis3_deep_dive(draft, original, is_followup=True)
             logger.info("Genesis3 completed successfully for followup")
-        except Exception as e:
-            logger.error(f"[Genesis-3] followup fail {e}")
+        except Exception:
+            logger.error("[Genesis-3] followup fail", exc_info=True)
         quote = prev_reply if len(prev_reply) <= 500 else prev_reply[:497] + "..."
         parts = [f"«{quote}»\n\n", draft]
         if twist:
@@ -469,8 +472,8 @@ async def delayed_followup(chat_id: int, user_id: str, prev_reply: str, original
 
         # Используем новую функцию send_split_message вместо разбиения и цикла
         await send_split_message(bot, chat_id, text)
-    except Exception as e:
-        logger.error(f"Error in delayed_followup: {e}")
+    except Exception:
+        logger.error("Error in delayed_followup", exc_info=True)
 
 async def afterthought(chat_id: int, user_id: str, original: str, private: bool):
     """Send a deeply delayed afterthought message."""
@@ -500,8 +503,8 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
             logger.info("Attempting Genesis3 deep dive for afterthought")
             deep = await genesis3_deep_dive(draft, original, is_followup=True)
             logger.info("Genesis3 completed successfully for afterthought")
-        except Exception as e:
-            logger.error(f"[Genesis-3] afterthought fail {e}")
+        except Exception:
+            logger.error("[Genesis-3] afterthought fail", exc_info=True)
 
         parts = [draft]
         if twist:
@@ -523,8 +526,8 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
 
         # Используем новую функцию send_split_message
         await send_split_message(bot, chat_id, text)
-    except Exception as e:
-        logger.error(f"Error in afterthought: {e}")
+    except Exception:
+        logger.error("Error in afterthought", exc_info=True)
 
 # --- Deep Dive Toggle Commands ---
 @dp.message(F.text == "/deep")
@@ -642,12 +645,12 @@ async def handle_document(m: types.Message):
                 audio_bytes = await text_to_voice(client, reply)
                 voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
                 await bot.send_voice(chat_id, voice_file)
-            except Exception as e:
-                logger.error(f"Voice synthesis failed: {e}")
+            except Exception:
+                logger.error("Voice synthesis failed", exc_info=True)
         await send_split_message(bot, chat_id=chat_id, text=reply)
-    except Exception as e:
-        logger.error(f"File processing failed: {e}")
-        await m.answer(f"file error: {e}")
+    except Exception:
+        logger.error("File processing failed", exc_info=True)
+        await m.answer("Произошла внутренняя ошибка, мы уже изучаем её")
 
 # --- Message Handler ---
 @dp.message()
@@ -690,8 +693,8 @@ async def handle_message(m: types.Message):
                     audio_bytes = await text_to_voice(client, reply)
                     voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
                     await bot.send_voice(chat_id, voice_file)
-                except Exception as e:
-                    logger.error(f"Voice synthesis failed: {e}")
+                except Exception:
+                    logger.error("Voice synthesis failed", exc_info=True)
             await send_split_message(bot, chat_id=chat_id, text=reply)
             return
 
@@ -716,8 +719,8 @@ async def handle_message(m: types.Message):
                     audio_bytes = await text_to_voice(client, reply)
                     voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
                     await bot.send_voice(chat_id, voice_file)
-                except Exception as e:
-                    logger.error(f"Voice synthesis failed: {e}")
+                except Exception:
+                    logger.error("Voice synthesis failed", exc_info=True)
             await send_split_message(bot, chat_id=chat_id, text=reply)
             return
 
@@ -750,8 +753,8 @@ async def handle_message(m: types.Message):
                     logger.info("Attempting Genesis3 deep dive for main response")
                     deep_dive = await genesis3_deep_dive(draft, text)
                     logger.info("Genesis3 completed successfully for main response")
-                except Exception as e:
-                    logger.error(f"[Genesis-3] fail {e}")
+                except Exception:
+                    logger.error("[Genesis-3] fail", exc_info=True)
                     if FORCE_DEEP_DIVE:
                         deep_dive = "🔍 Глубокий анализ не удался из-за технической ошибки."
 
@@ -772,8 +775,8 @@ async def handle_message(m: types.Message):
                 audio_bytes = await text_to_voice(client, reply)
                 voice_file = types.BufferedInputFile(audio_bytes, filename="reply.ogg")
                 await m.answer_voice(voice_file)
-            except Exception as e:
-                logger.error(f"Voice synthesis failed: {e}")
+            except Exception:
+                logger.error("Voice synthesis failed", exc_info=True)
 
         await send_split_message(bot, chat_id=chat_id, text=reply)
 
@@ -785,9 +788,9 @@ async def handle_message(m: types.Message):
         if random.random() < AFTERTHOUGHT_CHANCE:
             asyncio.create_task(afterthought(chat_id, user_id, text, private))
         await dayandnight.ensure_daily_entry()
-    except Exception as e:
-        logger.error(f"Error in handle_message: {e}")
-        await m.answer(f"I encountered an error while processing your message: {str(e)}")
+    except Exception:
+        logger.error("Error in handle_message", exc_info=True)
+        await m.answer("Произошла внутренняя ошибка, мы уже изучаем её")
 
 # --- Webhook setup ---
 async def on_startup(app):
@@ -816,14 +819,14 @@ async def on_shutdown(app):
     try:
         repo_watcher.stop()
         logger.info("Repo watcher stopped")
-    except Exception as e:
-        logger.error(f"Error stopping repo watcher: {e}")
+    except Exception:
+        logger.error("Error stopping repo watcher", exc_info=True)
     try:
         await memory.close()
         await knowtheworld.memory.close()
         logger.info("Memory connections closed")
-    except Exception as e:
-        logger.error(f"Error closing memory: {e}")
+    except Exception:
+        logger.error("Error closing memory", exc_info=True)
 
 # --- Main function with webhook support ---
 async def main():
@@ -872,7 +875,7 @@ if __name__ == "__main__":
             try:
                 await bot.get_updates(offset=-1)
             except Exception:
-                pass
+                logger.error("get_updates failed", exc_info=True)
             await dp.start_polling(bot)
             await memory.close()
             await knowtheworld.memory.close()

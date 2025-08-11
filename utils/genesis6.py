@@ -4,12 +4,15 @@ import textwrap
 from datetime import datetime, timezone
 import re
 import json
+import logging
 
 from .config import settings  # settings.PPLX_API_KEY должен быть определён
 
 PPLX_MODEL = "sonar-pro"
 PPLX_API_URL = "https://api.perplexity.ai/chat/completions"
 TIMEOUT = 20
+
+logger = logging.getLogger(__name__)
 
 headers = {
     "Authorization": f"Bearer {settings.PPLX_API_KEY}",
@@ -62,7 +65,7 @@ async def _call_sonar(messages: list) -> dict:
         try:
             resp.raise_for_status()
         except Exception:
-            print("[Genesis-6] Sonar HTTP error:", resp.text)
+            logger.error("[Genesis-6] Sonar HTTP error: %s", resp.text, exc_info=True)
             raise
         data = resp.json()["choices"][0]["message"]["content"].strip()
         try:
@@ -84,6 +87,6 @@ async def genesis6_profile_filter(user_message: str, meta: dict, language: str) 
         profile = await _call_sonar(messages)
         profile["timestamp"] = datetime.now(timezone.utc).isoformat()
         return profile
-    except Exception as e:
-        print(f"[Genesis-6] fail {e} @ {datetime.now(timezone.utc).isoformat()}")
+    except Exception:
+        logger.error("[Genesis-6] fail", exc_info=True)
         return {}

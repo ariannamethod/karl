@@ -69,7 +69,7 @@ class MemoryManager:
                         )
                         break
                     except Exception:
-                        logger.exception("Vector store failed (attempt %d)", attempt + 1)
+                        logger.error("Vector store failed (attempt %d)", attempt + 1, exc_info=True)
                         if attempt == 0:
                             await asyncio.sleep(1)
 
@@ -106,9 +106,8 @@ class MemoryManager:
             return []
         try:
             return await self.vectorstore.search(query, top_k, user_id=user_id)
-        except Exception as e:
-            # log and fall back to empty list
-            print(f"Vector search failed: {e}")
+        except Exception:
+            logger.error("Vector search failed", exc_info=True)
             return []
 
     async def last_response(self, user_id: str) -> str:
