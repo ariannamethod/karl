@@ -4,6 +4,18 @@
 
 ---
 
+Indiana-AM is stepping into the open as a research expedition. This project is now reaching beyond its laboratory origins and inviting the world to walk through its unfolding dig sites.
+
+You can now talk directly with Indiana on Telegram—follow the trail here: https://github.com/ariannamethod/Indiana-AM and begin your own field conversation.
+
+Contributions and proposals of every kind are welcome. Whether you want to refine the code, document a discovery, or chart an unexplored semantic ruin, your participation shapes the journey.
+
+**Pull requests aren't just for code.** We celebrate PRs that enrich the **`artefacts/`** folder, expanding the living archive of Indiana's knowledge.
+
+Every artefact is a shard of understanding; each entry adds a new layer to the ever-growing map of cognition. If you have insights, references, or raw field notes, drop them into `artefacts/` and let Indiana learn.
+
+This is our first public step toward a truly collaborative expedition. Developers, researchers, and curious explorers alike—join us and make this adventure your own.
+
 ## 1. Project Vision
 
 **INDIANA-AM** is an investigative large-language-entity inspired by the Indiana Jones archetype.  
