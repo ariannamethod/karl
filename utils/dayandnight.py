@@ -1,11 +1,15 @@
 import asyncio
+import logging
 from datetime import datetime, timezone
+
 from openai import AsyncOpenAI
+
 from .vectorstore import create_vector_store
 from .config import settings
 
 vector_store = create_vector_store()
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
+logger = logging.getLogger(__name__)
 
 async def _fetch_last_day():
     """Return the date string of the last daily log if present."""
@@ -14,7 +18,8 @@ async def _fetch_last_day():
         data = result.get("vectors", {}).get("last-daily")
         if data:
             return data.get("metadata", {}).get("date")
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to fetch last daily log: %s", exc)
         return None
     return None
 
@@ -22,8 +27,8 @@ async def _store_last_day(date: str, text: str):
     try:
         await vector_store.store(f"daily-{date}", text, user_id="daily")
         await vector_store.store("last-daily", text, user_id="daily")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Failed to store daily log: %s", exc)
 
 async def default_reflection() -> str:
     """Generate a short daily reflection via OpenAI."""
@@ -59,9 +64,12 @@ async def init_vector_memory():
 
 async def start_daily_task():
     """Background task that ensures a daily entry every 24 hours."""
-    while True:
-        try:
-            await ensure_daily_entry()
-        except Exception:
-            pass
-        await asyncio.sleep(86400)
+    try:
+        while True:
+            try:
+                await ensure_daily_entry()
+            except Exception as exc:
+                logger.warning("Daily entry failed: %s", exc)
+            await asyncio.sleep(86400)
+    except asyncio.CancelledError:
+        logger.info("Daily task cancelled")
