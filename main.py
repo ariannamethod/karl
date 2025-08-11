@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from utils.memory import MemoryManager
+from utils.lru_cache import LRUCache
 from utils.tools import send_split_message, sanitize_filename
 from utils.vectorstore import create_vector_store
 from utils.config import settings
@@ -75,7 +76,9 @@ memory = MemoryManager(db_path="lighthouse_memory.db", vectorstore=vector_store)
 AFTERTHOUGHT_CHANCE = 0.02
 FOLLOWUP_CHANCE = 0.05
 DetectorFactory.seed = 0
-USER_LANGS: dict[str, str] = {}
+LANG_CACHE_MAXLEN = 1000
+LANG_CACHE_TTL = 30 * 24 * 60 * 60  # 30 days
+USER_LANGS = LRUCache(maxlen=LANG_CACHE_MAXLEN)
 VOICE_USERS: set[str] = set()
 DIVE_WAITING: set[str] = set()
 CODER_USERS: set[str] = set()
@@ -100,7 +103,7 @@ def get_user_language(user_id: str, text: str) -> str:
         "bg": "ru",
         "tr": "ru" if re.search(r"[а-яА-ЯёЁ]", text) else "tr",
     }.get(lang, lang)
-    USER_LANGS[user_id] = lang
+    USER_LANGS.set(user_id, lang)
     return lang
 
 def load_artifacts() -> str:
@@ -141,6 +144,16 @@ async def cleanup_old_voice_files():
         except Exception as e:
             logger.error(f"Voice cleanup error: {e}")
         await asyncio.sleep(86400)
+
+
+async def cleanup_user_langs():
+    """Periodically drop inactive user language records."""
+    while True:
+        try:
+            USER_LANGS.cleanup(LANG_CACHE_TTL)
+        except Exception as e:
+            logger.error(f"Lang cache cleanup error: {e}")
+        await asyncio.sleep(3600)
 
 
 async def run_deep_dive(chat_id: int, user_id: str, query: str, lang: str) -> None:
@@ -727,6 +740,7 @@ async def on_startup(app):
     repo_watcher.start()
     await setup_bot_commands()
     asyncio.create_task(cleanup_old_voice_files())
+    asyncio.create_task(cleanup_user_langs())
 
     # Set webhook
     webhook_info = await bot.get_webhook_info()
@@ -790,6 +804,7 @@ if __name__ == "__main__":
             repo_watcher.start()
             await setup_bot_commands()
             asyncio.create_task(cleanup_old_voice_files())
+            asyncio.create_task(cleanup_user_langs())
             # Remove webhook and drop pending updates to avoid polling conflicts
             await bot.delete_webhook(drop_pending_updates=True)
             # Flush any previous getUpdates session
