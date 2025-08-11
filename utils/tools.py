@@ -1,8 +1,17 @@
 import asyncio
 import logging
+import re
+from pathlib import Path
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
+
+
+def sanitize_filename(filename: str) -> str:
+    """Return a safe filename without path components or suspicious characters."""
+    safe_name = Path(filename).name
+    safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", safe_name)
+    return safe_name or "file"
 
 def split_message(text: str, max_length: int = 4000):
     """
@@ -12,13 +21,13 @@ def split_message(text: str, max_length: int = 4000):
     # Если сообщение короче максимального размера, возвращаем его как есть
     if len(text) <= max_length:
         return [text]
-    
+
     parts = []
     current_part = ""
-    
+
     # Разбиваем длинное сообщение на части, учитывая абзацы
     paragraphs = text.split('\n\n')
-    
+
     for paragraph in paragraphs:
         # Если абзац сам по себе длиннее максимального размера, его нужно разбить по предложениям
         if len(paragraph) > max_length:
@@ -32,7 +41,7 @@ def split_message(text: str, max_length: int = 4000):
                         current_part += "\n\n" + sentence
                     else:
                         current_part = sentence
-                
+
                 # Проверяем не превышает ли текущая часть с одним предложением максимальную длину
                 if len(current_part) > max_length:
                     # Если предложение длиннее максимума, разбиваем по словам
@@ -52,11 +61,11 @@ def split_message(text: str, max_length: int = 4000):
                     current_part += "\n\n" + paragraph
                 else:
                     current_part = paragraph
-    
+
     # Добавляем последнюю часть, если она не пустая
     if current_part:
         parts.append(current_part.strip())
-    
+
     return parts
 
 async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
@@ -66,27 +75,27 @@ async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
     """
     # Логирование длины сообщения для отладки
     logger.info(f"Sending message with length: {len(text)} characters")
-    
+
     # Проверка на обрезанное предложение
     if text and not text[-1] in ['.', '!', '?', ':', ';', '"', ')', ']', '}']:
         logger.warning("Message appears to be cut off mid-sentence")
         # Добавляем многоточие, если сообщение кажется обрезанным
         text += "..."
-    
+
     parts = split_message(text)
     sent_messages = []
-    
+
     logger.info(f"Split into {len(parts)} parts")
-    
+
     for i, part in enumerate(parts):
         # Добавляем индикатор продолжения/окончания сообщения
         if i < len(parts) - 1:
             part += "\n\n[продолжение следует...]"
-        
+
         try:
             sent = await bot.send_message(chat_id=chat_id, text=part, parse_mode=parse_mode, **kwargs)
             sent_messages.append(sent)
-            
+
             # Небольшая задержка между сообщениями для лучшего восприятия
             if i < len(parts) - 1:
                 await asyncio.sleep(0.5)
@@ -95,10 +104,10 @@ async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
             # Попытаемся отправить сообщение об ошибке
             try:
                 await bot.send_message(
-                    chat_id=chat_id, 
+                    chat_id=chat_id,
                     text=f"⚠️ Возникла ошибка при отправке части сообщения: {str(e)}"
                 )
-            except:
+            except Exception:
                 pass
-    
+
     return sent_messages[0] if len(sent_messages) == 1 else sent_messages

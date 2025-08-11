@@ -13,7 +13,7 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from utils.memory import MemoryManager
-from utils.tools import send_split_message
+from utils.tools import send_split_message, sanitize_filename
 from utils.vectorstore import create_vector_store
 from utils.config import settings
 from utils import dayandnight
@@ -58,6 +58,7 @@ PORT = settings.PORT
 ARTIFACTS_DIR = Path("artefacts")
 NOTES_FILE = Path("notes/journal.json")
 VOICE_DIR = Path("voice_messages")
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
@@ -543,25 +544,29 @@ async def handle_document(m: types.Message):
     """Process uploaded documents using the context neural processor."""
     user_id = str(m.from_user.id)
     chat_id = m.chat.id
-    lang = get_user_language(user_id, m.document.file_name)
+    safe_name = sanitize_filename(m.document.file_name)
+    lang = get_user_language(user_id, safe_name)
     try:
+        if m.document.file_size and m.document.file_size > MAX_FILE_SIZE:
+            await m.answer("file too large")
+            return
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
             ARTIFACTS_DIR.mkdir(exist_ok=True)
-            file_path = ARTIFACTS_DIR / m.document.file_name
+            file_path = ARTIFACTS_DIR / safe_name
             await bot.download(m.document, destination=file_path)
             processed = await parse_and_store_file(str(file_path))
             match = re.search(r"Summary: (.*)\nRelevance:", processed, re.DOTALL)
             summary = match.group(1).strip() if match else processed[:200]
-            twist = await genesis2_sonar_filter(m.document.file_name, summary, lang)
+            twist = await genesis2_sonar_filter(safe_name, summary, lang)
             reply = summary
             if twist:
                 reply += f"\n\n🜂 Investigative Twist → {twist}"
-        await memory.save(user_id, f"file: {m.document.file_name}", reply)
+        await memory.save(user_id, f"file: {safe_name}", reply)
         save_note(
             {
                 "time": datetime.now(timezone.utc).isoformat(),
                 "user": user_id,
-                "query": m.document.file_name,
+                "query": safe_name,
                 "response": reply,
             }
         )
