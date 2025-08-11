@@ -18,6 +18,7 @@ from utils.vectorstore import create_vector_store
 from utils.config import settings
 from utils import dayandnight
 from utils import knowtheworld
+from utils.task_scheduler import scheduler
 from utils.genesis2 import genesis2_sonar_filter
 from utils.genesis3 import genesis3_deep_dive
 from utils.deepdiving import perplexity_search
@@ -538,6 +539,14 @@ async def disable_coder(m: types.Message):
     CODER_USERS.discard(str(m.from_user.id))
     await m.answer("coder mode disabled")
 
+
+@dp.message(F.text == "/exit")
+async def cancel_user_tasks(m: types.Message):
+    """Cancel all pending tasks for the user."""
+    user_id = str(m.from_user.id)
+    scheduler.cancel_user_tasks(user_id)
+    await m.answer("pending tasks cancelled")
+
 # --- Document Handler ---
 @dp.message(F.document)
 async def handle_document(m: types.Message):
@@ -705,11 +714,17 @@ async def handle_message(m: types.Message):
 
         # 5) Schedule follow-up
         if random.random() < FOLLOWUP_CHANCE:
-            asyncio.create_task(delayed_followup(chat_id, user_id, reply, text, private))
+            scheduler.schedule(
+                delayed_followup(chat_id, user_id, reply, text, private),
+                user_id,
+            )
 
         # 6) Randomly schedule afterthought
         if random.random() < AFTERTHOUGHT_CHANCE:
-            asyncio.create_task(afterthought(chat_id, user_id, text, private))
+            scheduler.schedule(
+                afterthought(chat_id, user_id, text, private),
+                user_id,
+            )
         await dayandnight.ensure_daily_entry()
     except Exception as e:
         logger.error(f"Error in handle_message: {e}")
@@ -722,11 +737,11 @@ async def on_startup(app):
     await memory.connect()
     await knowtheworld.memory.connect()
     await dayandnight.init_vector_memory()
-    asyncio.create_task(dayandnight.start_daily_task())
-    asyncio.create_task(knowtheworld.start_world_task())
+    scheduler.schedule(dayandnight.start_daily_task())
+    scheduler.schedule(knowtheworld.start_world_task())
     repo_watcher.start()
     await setup_bot_commands()
-    asyncio.create_task(cleanup_old_voice_files())
+    scheduler.schedule(cleanup_old_voice_files())
 
     # Set webhook
     webhook_info = await bot.get_webhook_info()
@@ -749,6 +764,12 @@ async def on_shutdown(app):
         logger.info("Memory connections closed")
     except Exception as e:
         logger.error(f"Error closing memory: {e}")
+
+    try:
+        await scheduler.shutdown()
+        logger.info("Scheduler shutdown")
+    except Exception as e:
+        logger.error(f"Error shutting down scheduler: {e}")
 
 # --- Main function with webhook support ---
 async def main():
@@ -785,11 +806,11 @@ if __name__ == "__main__":
             await memory.connect()
             await knowtheworld.memory.connect()
             await dayandnight.init_vector_memory()
-            asyncio.create_task(dayandnight.start_daily_task())
-            asyncio.create_task(knowtheworld.start_world_task())
+            scheduler.schedule(dayandnight.start_daily_task())
+            scheduler.schedule(knowtheworld.start_world_task())
             repo_watcher.start()
             await setup_bot_commands()
-            asyncio.create_task(cleanup_old_voice_files())
+            scheduler.schedule(cleanup_old_voice_files())
             # Remove webhook and drop pending updates to avoid polling conflicts
             await bot.delete_webhook(drop_pending_updates=True)
             # Flush any previous getUpdates session
@@ -798,6 +819,7 @@ if __name__ == "__main__":
             except Exception:
                 pass
             await dp.start_polling(bot)
+            await scheduler.shutdown()
             await memory.close()
             await knowtheworld.memory.close()
 

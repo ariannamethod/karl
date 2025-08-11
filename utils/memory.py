@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from .vectorstore import BaseVectorStore, create_vector_store
+from .task_scheduler import scheduler
 
 class MemoryManager:
     def __init__(self, db_path: str = "memory.db", vectorstore: Optional[BaseVectorStore] = None):
@@ -60,7 +61,7 @@ class MemoryManager:
                 except Exception:
                     pass
 
-            asyncio.create_task(_store_vector())
+            scheduler.schedule(_store_vector(), user_id)
 
     async def retrieve(self, user_id: str, query: str) -> str:
         """Retrieve last 5 responses for a given user as context."""
