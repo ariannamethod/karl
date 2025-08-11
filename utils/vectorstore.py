@@ -87,8 +87,18 @@ else:  # pragma: no cover - optional
 
 
 class LocalVectorStore(BaseVectorStore):
-    def __init__(self, max_size: int | None = None, persist_path: str | None = None):
-        """In-memory vector store with optional size limit and persistence."""
+    def __init__(self, max_size: int | None = 1000, persist_path: str | None = None):
+        """In-memory vector store with optional size limit and persistence.
+
+        Parameters
+        ----------
+        max_size:
+            Maximum number of entries to retain. A sane default of ``1000`` is
+            used to avoid unbounded memory growth. Pass ``None`` to disable the
+            limit entirely.
+        persist_path:
+            Optional path to persist the store on shutdown.
+        """
         self.max_size = max_size
         self.persist_path = persist_path
         # store as OrderedDict {id: (text, user_id)} to track insertion order
@@ -130,7 +140,7 @@ class LocalVectorStore(BaseVectorStore):
         return [text for text, _ in scored[:top_k]]
 
 
-def create_vector_store(max_size: int | None = None, persist_path: str | None = None) -> BaseVectorStore:
+def create_vector_store(max_size: int | None = 1000, persist_path: str | None = None) -> BaseVectorStore:
     if (
         Pinecone
         and settings.OPENAI_API_KEY
