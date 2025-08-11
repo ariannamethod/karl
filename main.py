@@ -5,6 +5,7 @@ import logging
 import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from collections import OrderedDict
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler
@@ -103,27 +104,49 @@ def get_user_language(user_id: str, text: str) -> str:
     USER_LANGS[user_id] = lang
     return lang
 
-def load_artifacts() -> str:
-    """Concatenate all text files from artefacts directory."""
-    texts = []
-    if ARTIFACTS_DIR.exists():
-        for p in ARTIFACTS_DIR.iterdir():
-            if p.is_file():
-                try:
-                    texts.append(p.read_text())
-                except Exception as e:
-                    logger.error(f"Error reading artifact {p}: {e}")
-                    continue
-    return "\n".join(texts)
+class ArtifactCache:
+    """Lazy-loading cache for artefact files with size limit."""
 
-ARTIFACTS_TEXT = load_artifacts()
+    def __init__(self, directory: Path, max_items: int = 10) -> None:
+        self.directory = directory
+        self.max_items = max_items
+        self.cache: OrderedDict[str, str] = OrderedDict()
+
+    def get(self, name: str) -> str:
+        path = self.directory / name
+        if not path.is_file():
+            raise FileNotFoundError(f"Artifact {name} not found")
+        if name in self.cache:
+            self.cache.move_to_end(name)
+            return self.cache[name]
+        text = path.read_text()
+        self.cache[name] = text
+        if len(self.cache) > self.max_items:
+            self.cache.popitem(last=False)
+        return text
+
+    def get_all_text(self) -> str:
+        texts = []
+        if self.directory.exists():
+            for p in self.directory.iterdir():
+                if p.is_file():
+                    try:
+                        texts.append(self.get(p.name))
+                    except Exception as e:
+                        logger.error(f"Error reading artifact {p}: {e}")
+        return "\n".join(texts)
+
+    def clear(self) -> None:
+        self.cache.clear()
+
+
+artifact_cache = ArtifactCache(ARTIFACTS_DIR, max_items=10)
 
 
 def reload_artifacts() -> None:
-    """Reload artefact texts when repository changes."""
-    global ARTIFACTS_TEXT
-    ARTIFACTS_TEXT = load_artifacts()
-    logger.info("Artifacts reloaded after repository change")
+    """Clear artefact cache when repository changes."""
+    artifact_cache.clear()
+    logger.info("Artifact cache cleared after repository change")
 
 
 repo_watcher = RepoWatcher(paths=[Path('.')], on_change=reload_artifacts)
@@ -425,7 +448,8 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
 
         # Process with assistant instead of Sonar
         lang = get_user_language(user_id, original)
-        draft = await process_with_assistant(prompt, ARTIFACTS_TEXT + "\n" + context, lang)
+        artifact_ctx = artifact_cache.get_all_text()
+        draft = await process_with_assistant(prompt, artifact_ctx + "\n" + context, lang)
         twist = await genesis2_sonar_filter(original, draft, lang)
 
         deep = ""
@@ -663,7 +687,8 @@ async def handle_message(m: types.Message):
         # 1) Load context from memory and artifacts
         mem_ctx = await memory.retrieve(user_id, text)
         vector_ctx = "\n".join(await memory.search_memory(user_id, text))
-        system_ctx = ARTIFACTS_TEXT + "\n" + mem_ctx + "\n" + vector_ctx
+        artifact_ctx = artifact_cache.get_all_text()
+        system_ctx = artifact_ctx + "\n" + mem_ctx + "\n" + vector_ctx
         lang = get_user_language(user_id, text)
 
         # 2) Process with Assistant API and apply reasoning filters
