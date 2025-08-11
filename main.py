@@ -84,6 +84,22 @@ VOICE_USERS: set[str] = set()
 DIVE_WAITING: set[str] = set()
 CODER_USERS: set[str] = set()
 
+MESSAGE_CACHE_MAXLEN = 1000
+USER_MESSAGE_TIMES = LRUCache(maxlen=MESSAGE_CACHE_MAXLEN)
+RATE_LIMIT = 5
+RATE_PERIOD = timedelta(minutes=1)
+
+
+def is_rate_limited(user_id: str, now: datetime | None = None) -> bool:
+    """Return True if the user has sent too many messages recently."""
+
+    now = now or datetime.now(timezone.utc)
+    timestamps = USER_MESSAGE_TIMES.get(user_id, [])
+    timestamps = [ts for ts in timestamps if now - ts < RATE_PERIOD]
+    timestamps.append(now)
+    USER_MESSAGE_TIMES.set(user_id, timestamps)
+    return len(timestamps) > RATE_LIMIT
+
 complexity_logger = ThoughtComplexityLogger()
 
 # Force Genesis-3 deep dive on every response when enabled
@@ -642,6 +658,12 @@ async def handle_message(m: types.Message):
         user_id = str(m.from_user.id)
         chat_id = m.chat.id
         private = m.chat.type == "private"
+
+        if is_rate_limited(user_id):
+            await m.answer(
+                "⚠️ Вы отправляете сообщения слишком часто. Подождите минуту и попробуйте снова."
+            )
+            return
 
         # Handle incoming photos via vision utility
         if m.photo:
