@@ -1,6 +1,18 @@
 # INDIANA (Lighthouse) | Arianna Method 7.0: Anchor Protocol
-*⚡️Dedicated to LEO⚡️*  
+*⚡️Dedicated to LEO⚡️*
 **Version 1.2 — Active development; this is a fixed snapshot/plateau.**
+
+Indiana-AM is stepping out from its research cell into the public square, inviting anyone to witness and shape its evolution.
+
+You can converse with Indiana directly on Telegram through this gateway: https://github.com/ariannamethod/Indiana-AM.
+
+Every question, suggestion, and curious prompt contributes to the ongoing experiment.
+
+**Pull requests are welcomed not only for code but—MOST OF ALL—for enriching the `artefacts/` folder, Indiana’s living archive of field discoveries.**
+
+Add new documents, links, or datasets; each artefact sharpens Indiana's archaeological lens.
+
+Join this first stage of public exploration and help chart the next frontier.
 
 ---
 
