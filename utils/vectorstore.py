@@ -19,8 +19,15 @@ logger = logging.getLogger(__name__)
 
 
 class BaseVectorStore:
-    async def store(self, id: str, text: str, *, user_id: str | None = None):
-        """Store text with optional user metadata."""
+    async def store(
+        self,
+        id: str,
+        text: str,
+        *,
+        user_id: str | None = None,
+        metadata: Dict | None = None,
+    ):
+        """Store text with optional user metadata and extra metadata."""
         raise NotImplementedError
 
     async def search(self, query: str, top_k: int = 5, *, user_id: str | None = None) -> List[str]:
@@ -52,14 +59,23 @@ if Pinecone:
                         raise
                     await asyncio.sleep(2 ** attempt)
 
-        async def store(self, id: str, text: str, *, user_id: str | None = None):
+        async def store(
+            self,
+            id: str,
+            text: str,
+            *,
+            user_id: str | None = None,
+            metadata: Dict | None = None,
+        ):
             vector = await self.embed_text(text)
             for attempt in range(3):
                 try:
-                    metadata = {"text": text}
+                    meta = {"text": text}
                     if user_id:
-                        metadata["user"] = user_id
-                    self.index.upsert(vectors=[(id, vector, metadata)])
+                        meta["user"] = user_id
+                    if metadata:
+                        meta.update(metadata)
+                    self.index.upsert(vectors=[(id, vector, meta)])
                     return
                 except Exception as e:
                     logger.error("Pinecone upsert attempt %s failed: %s", attempt + 1, e)
@@ -91,8 +107,8 @@ class LocalVectorStore(BaseVectorStore):
         """In-memory vector store with optional size limit and persistence."""
         self.max_size = max_size
         self.persist_path = persist_path
-        # store as OrderedDict {id: (text, user_id)} to track insertion order
-        self._store: "OrderedDict[str, Tuple[str, str | None]]" = OrderedDict()
+        # store as OrderedDict {id: (text, user_id, metadata)} to track insertion order
+        self._store: "OrderedDict[str, Tuple[str, str | None, Dict | None]]" = OrderedDict()
         if self.persist_path and os.path.exists(self.persist_path):
             try:
                 with open(self.persist_path, "r", encoding="utf-8") as f:
@@ -112,16 +128,25 @@ class LocalVectorStore(BaseVectorStore):
         except Exception as e:
             logger.error("Failed to persist vector store: %s", e)
 
-    async def store(self, id: str, text: str, *, user_id: str | None = None):
+    async def store(
+        self,
+        id: str,
+        text: str,
+        *,
+        user_id: str | None = None,
+        metadata: Dict | None = None,
+    ):
         if id in self._store:
             self._store.move_to_end(id)
-        self._store[id] = (text, user_id)
+        self._store[id] = (text, user_id, metadata)
         if self.max_size is not None and len(self._store) > self.max_size:
             self._store.popitem(last=False)
 
     async def search(self, query: str, top_k: int = 5, *, user_id: str | None = None) -> List[str]:
         scored: List[Tuple[str, float]] = []
-        for text_id, (text, uid) in self._store.items():
+        for _, value in self._store.items():
+            text = value[0]
+            uid = value[1] if len(value) > 1 else None
             if user_id and uid != user_id:
                 continue
             score = SequenceMatcher(None, query.lower(), text.lower()).ratio()
