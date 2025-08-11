@@ -338,7 +338,7 @@ cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY, PPLX_API_KEY, etc.
 # Conversation logs append to `notes/journal.json`
 pip install -r requirements.txt
 python main.py
-
+```
 
 ⸻
 
@@ -349,3 +349,4 @@ GNU General Public License 3.0 — because archaeology of consciousness should s
 ⸻
 
 Happy digging, Oleg — let Indiana resonate!
+

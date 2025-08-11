@@ -64,7 +64,7 @@ Indiana ne publie jamais un dump Sonar brut. Les réponses passent par une **pil
 
 ### Genesis2 — Filtre d'intuition
 
-Genesis2 se place entre le brouillon Sonar initial et la réponse finale, jouant le rôle de filtre d'intuition qui ré-ancre la réponse dans l'archive d'artefacts d'Indiana. En appelant le modèle Perplexity `sonar-pro`, il cherche une courte touche d'enquête qui reframing la requête de l'utilisateur à la lumière des découvertes passées.
+Genesis2 se place entre le brouillon Sonar initial et la réponse finale, jouant le rôle de filtre d'intuition qui ré-ancre la réponse dans l'archive d'artefacts d'Indiana. En appelant le modèle Perplexity `sonar-pro`, il cherche une courte touche d'enquête qui reformule la requête de l'utilisateur à la lumière des découvertes passées.
 
 Le module construit un petit paquet de prompt : une instruction système décrivant le rôle de GENESIS-2, la requête originale et le brouillon préliminaire. Cette structure demande au modèle de répondre dans la langue de l'utilisateur et limite l'intuition à **500 tokens**, garantissant que la torsion reste ciblée.
 
