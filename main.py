@@ -633,7 +633,7 @@ async def handle_message(m: types.Message):
         if user_id in CODER_USERS:
             lang = get_user_language(user_id, text)
             async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
-                result = await interpret_code(text)
+                result = await interpret_code(text, lang)
                 twist = await genesis2_sonar_filter(text, result, lang)
             reply = f"{result}\n\n🜂 Investigative Twist → {twist}"
             await memory.save(user_id, text, reply)
