@@ -9,14 +9,23 @@ from .vectorstore import BaseVectorStore, create_vector_store
 
 logger = logging.getLogger(__name__)
 
+# how many records to keep per user
+DEFAULT_MAX_RECORDS = 100
+
 
 class MemoryManager:
-    def __init__(self, db_path: str = "memory.db", vectorstore: Optional[BaseVectorStore] = None):
+    def __init__(
+        self,
+        db_path: str = "memory.db",
+        vectorstore: Optional[BaseVectorStore] = None,
+        max_records_per_user: int = DEFAULT_MAX_RECORDS,
+    ):
         self.db_path = db_path
         self.vectorstore = vectorstore or create_vector_store()
         self._db: Optional[aiosqlite.Connection] = None
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task] = set()
+        self.max_records_per_user = max_records_per_user
 
     async def connect(self) -> aiosqlite.Connection:
         """Create a single shared connection if it doesn't exist."""
@@ -47,7 +56,30 @@ class MemoryManager:
             )
             """
         )
+        # composite index to speed up per-user queries
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_ts ON memory(user_id, timestamp)"
+        )
+        # index on timestamp for global cleanup or ordering
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ts ON memory(timestamp)"
+        )
         await db.commit()
+
+    async def _prune_user_records(self, db: aiosqlite.Connection, user_id: str) -> None:
+        """Remove old records keeping only the most recent N per user."""
+        await db.execute(
+            """
+            DELETE FROM memory
+            WHERE rowid IN (
+                SELECT rowid FROM memory
+                WHERE user_id=?
+                ORDER BY timestamp DESC
+                LIMIT -1 OFFSET ?
+            )
+            """,
+            (user_id, self.max_records_per_user),
+        )
 
     async def save(self, user_id: str, query: str, response: str):
         """Save user query and response to memory database and vector store."""
@@ -57,6 +89,7 @@ class MemoryManager:
             "INSERT INTO memory VALUES (?,?,?,?)",
             (user_id, ts, query, response),
         )
+        await self._prune_user_records(db, user_id)
         await db.commit()
         if self.vectorstore:
             async def _store_vector():
@@ -81,7 +114,7 @@ class MemoryManager:
         """Retrieve last 5 responses for a given user as context."""
         db = await self.connect()
         async with db.execute(
-            "SELECT response FROM memory WHERE user_id=? ORDER BY timestamp DESC LIMIT 5",
+            "SELECT response FROM memory INDEXED BY idx_user_ts WHERE user_id=? ORDER BY timestamp DESC LIMIT 5",
             (user_id,),
         ) as cur:
             rows = await cur.fetchall()
@@ -94,7 +127,7 @@ class MemoryManager:
         """Return recent query/response pairs across all users."""
         db = await self.connect()
         async with db.execute(
-            "SELECT query, response FROM memory ORDER BY timestamp DESC LIMIT ?",
+            "SELECT query, response FROM memory INDEXED BY idx_ts ORDER BY timestamp DESC LIMIT ?",
             (limit,),
         ) as cur:
             rows = await cur.fetchall()
