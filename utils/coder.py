@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import os
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from openai import OpenAI
 
@@ -31,11 +32,11 @@ class DraftResponse:
 class GrokkyCoder:
     """Stateful helper that analyzes and generates code."""
 
-    def __init__(self) -> None:
-        self.history: List[str] = []
+    def __init__(self, max_history: int = 50) -> None:
+        self.history: deque[str] = deque(maxlen=max_history)
 
     async def _ask(self, prompt: str) -> str:
-        conversation = "\n".join(self.history + [prompt])
+        conversation = "\n".join([*self.history, prompt])
         try:  # pragma: no cover - network
             response = await asyncio.to_thread(
                 client.responses.create,
@@ -46,7 +47,7 @@ class GrokkyCoder:
             )
             text = getattr(response, "output_text", "")
             if not text:
-                parts: List[str] = []
+                parts: list[str] = []
                 for msg in getattr(response, "output", []) or []:
                     if hasattr(msg, "content"):
                         for piece in msg.content:
@@ -100,4 +101,3 @@ async def generate_code(request: str) -> DraftResponse:
 
 
 __all__ = ["interpret_code", "generate_code", "GrokkyCoder", "DraftResponse"]
-
