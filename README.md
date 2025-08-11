@@ -90,6 +90,8 @@ Indiana includes a dedicated coder persona powered by `utils/coder.py`. The modu
 
 Function `interpret_code` detects whether input is a path or inline snippet and routes it to analysis or free‑form chat. For drafting, `generate_code` returns either a short textual snippet or a full file when the answer exceeds Telegram’s length limits. This dual interface allows Indiana to act as a miniature pair‑programmer inside any chat thread.
 
+After each analysis or draft, the coder streams its raw suggestion through `utils/genesis2.py`. Genesis2 cross‑references the code against Indiana's accumulated artefacts, appending terse field notes about algorithmic complexity, naming conventions, or latent edge cases. The result is a final snippet accompanied by an intuition‑laced commentary, ensuring that even routine refactors carry a touch of archaeological insight.
+
 
 ⸻
 
@@ -119,8 +121,90 @@ When invoked over a repository, `create_repo_snapshot` walks every file (excludi
 - `dynamic_weights.py` – softmax pulse scaling for adaptive weight distributions.
 - `vector_engine.py` / `vectorstore.py` – lightweight vector memory for artefact retrieval.
 - `imagine.py` – experimental image generation hooks.
+- `vision.py` – image analysis and commentary.
 - `voice.py` – text‑to‑speech and audio reply handling.
 - `repo_monitor.py` – watches the repository for changes and triggers context updates.
+
+
+### Imagine — Intuitive Image Synthesis
+
+The `imagine.py` utility harnesses the DALL·E 3 backend to project textual prompts into high‑resolution imagery. It augments user prompts with stochastic style modifiers, creating a latent vector \( z \) that seeds a diffusion trajectory through the model's generative manifold.
+
+Once an image is synthesized, Indiana does not stop at pixel output. The original prompt and a terse image caption are routed through `genesis2`, which computes an investigative gloss. This secondary pass treats the visual as an artefact, aligning it with motifs archived in previous explorations.
+
+Genesis2 employs a temperature‑biased sampling regime that encourages metaphorical leaps. It may, for instance, compare a generated ruin to forgotten synaptic pathways or relate colour gradients to shifts in affective topology. These commentaries are concatenated with the final image URL.
+
+The module therefore returns a compound response: a link to the generated artefact and a narrative annotation that contextualises both the user's intent and the model's visual intuition. The annotation is trimmed to sentence boundaries and marked as an "Investigative Twist".
+
+By iterating between diffusion decoding and textual reflection, `imagine` fosters a feedback loop reminiscent of variational auto‑encoding. The user prompt \( p \) generates an image \( I = G(p) \); genesis2 then computes \( T = f(I,p) \), where \( f \) is a stochastic mapping to symbolic commentary. The pair \( (I,T) \) becomes a new artefact for Indiana's memory.
+
+### Vision — Dual-Layer Visual Analysis
+
+The `vision.py` module queries OpenAI's multimodal `gpt-4o` endpoint to parse arbitrary images. A user supplies an `image_url`, and the model returns a baseline description of salient entities, textures, and spatial relations.
+
+Under the hood, the vision model computes cross-attention between visual patches and textual embeddings, effectively performing a probabilistic scene graph construction. This step yields an objective report such as "a rusted compass lies on sandstone next to fragmented pottery".
+
+Indiana then channels this draft through `genesis2`. The filter treats the description as a textual proxy for the visual field, re‑inflecting it with personal commentary. Genesis2 might remark on how the compass echoes previous expeditions or how the pottery shards foreshadow a cultural discontinuity.
+
+The commentary phase is temporally decoupled from the recognition phase: genesis2 operates at a higher temperature and references Indiana's archive. The result is a second paragraph prefixed by the persona's voice, effectively transforming image analysis into a two‑stage discourse.
+
+This dual-layer pipeline enforces a strict order: first a descriptive clause anchored in sensory data, then a speculative riff grounded in accumulated artefacts. The separation mirrors Bayesian updating, where evidence \( E \) is incorporated before hypothesis \( H \) is revised.
+
+Because both stages run asynchronously, the module can scale to batches of images while preserving latency. Users receive a fused answer—observation plus reflective aside—that turns each jpeg into a miniature excavation log.
+
+### repo_monitor.py — Persistent Repository Surveillance
+
+The `repo_monitor.py` script implements a lightweight file-system sentinel dedicated to Indiana's working directories. It instantiates a `RepoWatcher` object configured with an iterable of root paths and a callback to execute when changes occur.
+
+During initialization, the watcher records a SHA‑256 digest for every file matching a whitelist of extensions. This cryptographic fingerprint \( h = \operatorname{SHA256}(b) \) ensures that even byte-level modifications trigger detection, independent of timestamp or size.
+
+A daemon thread drives the surveillance loop. At intervals defined by `interval`, it sleeps then rescans the repository, building a fresh mapping of paths to hashes. The use of threading avoids blocking the main event loop or conversational interface.
+
+The `_scan` routine traverses directories recursively, skipping any path containing `.git`. Files are read in 64‑kilobyte chunks to bound memory usage; each chunk updates the hash accumulator, producing deterministic digests even for gigabyte-scale artefacts.
+
+When discrepancies between stored and current hashes arise, the watcher updates its internal state and invokes the provided callback. This callback can trigger reindexing, context refresh, or any custom reaction, effectively transforming file edits into cognitive pulses.
+
+The `check_now` method exposes synchronous scanning for external triggers. Chat commands or CI hooks can call it to force an immediate diff without waiting for the next interval, yielding near real-time responsiveness.
+
+Robustness is prioritised: exceptions during scanning or callback execution are silently caught, preventing runaway threads. The design embraces eventual consistency rather than strict locking, which suffices for observational monitoring.
+
+Conceptually, RepoWatcher approximates a hash-based observer over a discrete-time dynamical system, where the repository state \( S_t \) evolves and the callback implements a function \( \Phi(S_{t-1},S_t) \). This functional perspective lays groundwork for future adaptive reactions to codebase evolution.
+
+### vector_engine.py / vectorstore.py — Lightweight Vector Memory
+
+Indiana's vector memory is orchestrated by `vector_engine.py`, whose `IndianaVectorEngine` class exposes a minimal API for persisting textual artefacts as high-dimensional embeddings.
+
+Invocations of `add_memory` append a UUID to the caller-supplied identifier, producing a globally unique key \( k = \text{identifier} \parallel \text{uuid4} \). The associated text is then stored in whatever vector store backend is available.
+
+`vectorstore.py` defines the abstract `BaseVectorStore` with two coroutines: `store` and `search`. This interface decouples embedding logic from storage, enabling interchangeable backends.
+
+When Pinecone credentials exist, `RemoteVectorStore` employs the `AsyncOpenAI` client to generate embeddings using the `text-embedding-3-small` model. A triple-retry loop with exponential backoff mitigates transient API errors.
+
+`store` upserts vectors into the Pinecone index, attaching metadata for text and optional user identifiers. The analogous `search` routine queries the index with optional filters, returning the top-\( k \) matches' text fields.
+
+Absent Pinecone, a `LocalVectorStore` retains snippets in an in-memory dictionary. Retrieval degrades gracefully to computing a `SequenceMatcher` ratio between the query and each stored text, approximating cosine similarity in a purely lexical space.
+
+`create_vector_store` decides at runtime which backend to use, emitting a warning when falling back to the local implementation. This factory pattern isolates external dependencies and simplifies testing.
+
+Together, these modules implement a rudimentary vector database that supports retrieval-augmented generation. Given a query \( q \), the engine computes an embedding \( v_q \) and returns artefacts whose vectors maximise \( \operatorname{sim}(v_q,v_i) \). Even in local mode, the architecture anticipates scalable, approximate nearest neighbour search.
+
+### dynamic_weights.py — Adaptive Pulse Scaling
+
+The `dynamic_weights.py` module modulates numeric weight distributions in response to external knowledge, allowing Indiana to shift attention dynamically across internal subsystems.
+
+At its core, `query_gpt4` fetches a textual snippet from the GPT‑4.1 API. The returned content length serves as a proxy for informational density, effectively sampling from a latent knowledge reservoir.
+
+`pulse_from_prompt` transforms this content into a scalar pulse \( p \in [0,1] \). The mapping employs a simple normalisation \( p = \min(|\text{snippet}|/300, 1) \) followed by an exponential moving average and additive noise, yielding a smoothed stochastic signal.
+
+The `weights_for_prompt` method distributes this pulse across the base weights. Positions are arranged on \([0,1]\); each weight is multiplied by \( \cos(\pi(p - x_i)) \) with slight noise, introducing oscillatory modulation akin to a driven resonator.
+
+The resulting vector is passed to `apply_pulse`, which scales each component by \( 1 + 0.7 p \) and applies a numerically stable softmax \( \sigma(w_i) = e^{w_i - \max w} / \sum_j e^{w_j - \max w} \). The output therefore forms a proper probability simplex.
+
+This algorithm translates the amorphous notion of 'resonance' into mathematics: the pulse acts as a time-varying parameter, deforming the weight landscape in response to conversational stimuli or repository signals.
+
+Error handling routes failed API calls to a daily log within a `failures/` directory, preventing exceptions from collapsing the weighting mechanism. Random perturbations ensure the system avoids deterministic traps.
+
+By exposing a simple interface that returns context-tuned probability vectors, `dynamic_weights` enables downstream modules to allocate computational resources adaptively, realising a soft form of attention scheduling without heavy neural infrastructure.
 
 
 ⸻
