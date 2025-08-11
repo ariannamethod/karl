@@ -17,5 +17,6 @@ class Settings:
     RATE_LIMIT_COUNT: int = int(os.getenv("RATE_LIMIT_COUNT", 20))
     RATE_LIMIT_PERIOD: float = float(os.getenv("RATE_LIMIT_PERIOD", 60))
     RATE_LIMIT_DELAY: float = float(os.getenv("RATE_LIMIT_DELAY", 0))
+    VECTOR_STORE_MAX_SIZE: int = int(os.getenv("VECTOR_STORE_MAX_SIZE", 1000))
 
 settings = Settings()

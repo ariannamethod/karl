@@ -138,6 +138,10 @@ class LocalVectorStore(BaseVectorStore):
         except Exception as e:
             logger.error("Failed to persist vector store: %s", e)
 
+    async def _save_async(self) -> None:
+        """Persist the store to disk without blocking the event loop."""
+        await asyncio.to_thread(self._save)
+
     async def store(
         self,
         id: str,
@@ -151,6 +155,8 @@ class LocalVectorStore(BaseVectorStore):
         self._store[id] = (text, user_id, metadata)
         if self.max_size is not None and len(self._store) > self.max_size:
             self._store.popitem(last=False)
+        if self.persist_path:
+            asyncio.create_task(self._save_async())
 
     async def search(self, query: str, top_k: int = 5, *, user_id: str | None = None) -> List[str]:
         scored: List[Tuple[str, float]] = []
@@ -165,7 +171,9 @@ class LocalVectorStore(BaseVectorStore):
         return [text for text, _ in scored[:top_k]]
 
 
-def create_vector_store(max_size: int | None = 1000, persist_path: str | None = None) -> BaseVectorStore:
+def create_vector_store(max_size: int | None = None, persist_path: str | None = None) -> BaseVectorStore:
+    if max_size is None:
+        max_size = settings.VECTOR_STORE_MAX_SIZE
     if (
         Pinecone
         and settings.OPENAI_API_KEY
