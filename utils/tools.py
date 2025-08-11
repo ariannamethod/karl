@@ -88,6 +88,10 @@ async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
     logger.info(f"Split into {len(parts)} parts")
 
     for i, part in enumerate(parts):
+        # Добавляем эмодзи-индикатор для первой части ответа
+        if i == 0 and not part.startswith("☝🏻"):
+            part = "☝🏻 " + part
+
         # Добавляем индикатор продолжения/окончания сообщения
         if i < len(parts) - 1:
             part += "\n\n[продолжение следует...]"
