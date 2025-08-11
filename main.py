@@ -714,6 +714,8 @@ async def handle_message(m: types.Message):
 async def on_startup(app):
     """Setup webhook on startup."""
     await setup_assistant()
+    await memory.connect()
+    await knowtheworld.memory.connect()
     await dayandnight.init_vector_memory()
     asyncio.create_task(dayandnight.start_daily_task())
     asyncio.create_task(knowtheworld.start_world_task())
@@ -736,6 +738,12 @@ async def on_shutdown(app):
         logger.info("Repo watcher stopped")
     except Exception as e:
         logger.error(f"Error stopping repo watcher: {e}")
+    try:
+        await memory.close()
+        await knowtheworld.memory.close()
+        logger.info("Memory connections closed")
+    except Exception as e:
+        logger.error(f"Error closing memory: {e}")
 
 # --- Main function with webhook support ---
 async def main():
@@ -769,6 +777,8 @@ if __name__ == "__main__":
         # Polling mode (for local development)
         async def start_polling():
             await setup_assistant()
+            await memory.connect()
+            await knowtheworld.memory.connect()
             await dayandnight.init_vector_memory()
             asyncio.create_task(dayandnight.start_daily_task())
             asyncio.create_task(knowtheworld.start_world_task())
@@ -783,5 +793,7 @@ if __name__ == "__main__":
             except Exception:
                 pass
             await dp.start_polling(bot)
+            await memory.close()
+            await knowtheworld.memory.close()
 
         asyncio.run(start_polling())
