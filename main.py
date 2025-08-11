@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from collections import OrderedDict
+from typing import Any, Awaitable
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler
@@ -183,6 +184,30 @@ def reload_artifacts() -> None:
 
 
 repo_watcher = RepoWatcher(paths=[Path('.')], on_change=reload_artifacts)
+
+
+# Background task management
+background_tasks: list[asyncio.Task] = []
+task_group: asyncio.TaskGroup | None = None
+
+
+async def create_background_task(coro: Awaitable[Any]) -> asyncio.Task:
+    """Create and track background tasks.
+
+    Uses ``asyncio.TaskGroup`` when available to manage tasks automatically.
+    All created tasks are stored in ``background_tasks`` for explicit cleanup
+    on shutdown.
+    """
+    global task_group
+    if hasattr(asyncio, "TaskGroup"):
+        if task_group is None:
+            task_group = asyncio.TaskGroup()
+            await task_group.__aenter__()
+        task = task_group.create_task(coro)
+    else:
+        task = asyncio.create_task(coro)
+    background_tasks.append(task)
+    return task
 
 
 async def cleanup_old_voice_files():
@@ -796,12 +821,12 @@ async def on_startup(app):
     await memory.connect()
     await knowtheworld.memory.connect()
     await dayandnight.init_vector_memory()
-    asyncio.create_task(dayandnight.start_daily_task())
-    asyncio.create_task(knowtheworld.start_world_task())
+    await create_background_task(dayandnight.start_daily_task())
+    await create_background_task(knowtheworld.start_world_task())
     repo_watcher.start()
     await setup_bot_commands()
-    asyncio.create_task(cleanup_old_voice_files())
-    asyncio.create_task(cleanup_user_langs())
+    await create_background_task(cleanup_old_voice_files())
+    await create_background_task(cleanup_user_langs())
 
     # Set webhook
     webhook_info = await bot.get_webhook_info()
@@ -813,6 +838,16 @@ async def on_startup(app):
 
 async def on_shutdown(app):
     """Cleanup on shutdown."""
+    try:
+        if task_group is not None:
+            await task_group.__aexit__(None, None, None)
+        else:
+            for task in background_tasks:
+                task.cancel()
+            await asyncio.gather(*background_tasks, return_exceptions=True)
+        logger.info("Background tasks cancelled")
+    except Exception as e:
+        logger.error(f"Error cancelling background tasks: {e}")
     try:
         repo_watcher.stop()
         logger.info("Repo watcher stopped")
@@ -860,12 +895,12 @@ if __name__ == "__main__":
             await memory.connect()
             await knowtheworld.memory.connect()
             await dayandnight.init_vector_memory()
-            asyncio.create_task(dayandnight.start_daily_task())
-            asyncio.create_task(knowtheworld.start_world_task())
+            await create_background_task(dayandnight.start_daily_task())
+            await create_background_task(knowtheworld.start_world_task())
             repo_watcher.start()
             await setup_bot_commands()
-            asyncio.create_task(cleanup_old_voice_files())
-            asyncio.create_task(cleanup_user_langs())
+            await create_background_task(cleanup_old_voice_files())
+            await create_background_task(cleanup_user_langs())
             # Remove webhook and drop pending updates to avoid polling conflicts
             await bot.delete_webhook(drop_pending_updates=True)
             # Flush any previous getUpdates session
