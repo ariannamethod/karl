@@ -63,6 +63,8 @@ def collect_new_data(
     threshold: int = DEFAULT_THRESHOLD,
     resume: bool = False,
     logger: Optional[logging.Logger] = None,
+    allow_ext: Iterable[str] = DEFAULT_ALLOW_EXT,
+    deny_ext: Optional[Iterable[str]] = None,
 ) -> Tuple[bool, str]:
     """Collect text from ``base_paths`` and write to ``dataset_path`` when threshold exceeded."""
 
@@ -73,7 +75,12 @@ def collect_new_data(
     parts = []
     with temp_path.open("w", encoding="utf-8") as tmp:
         first = True
-        for path in _iter_text_files(base_paths, exclude=[dataset_path, STATE_FILE, temp_path]):
+        for path in _iter_text_files(
+            base_paths,
+            exclude=[dataset_path, STATE_FILE, temp_path],
+            allow_ext=allow_ext,
+            deny_ext=deny_ext,
+        ):
             try:
                 size = path.stat().st_size
                 h = file_hash(path, size=size)
@@ -116,12 +123,21 @@ def run_orchestrator(
     dataset_dir: Path = CONFIG_DATASET_DIR,
     resume: bool = False,
     dry_run: bool = False,
+    allow_ext: Iterable[str] = DEFAULT_ALLOW_EXT,
+    deny_ext: Optional[Iterable[str]] = None,
 ) -> dict:
     """Collect data, train if ready, and return entropy metrics."""
 
     repo_root = Path(__file__).resolve().parents[1]
     base_paths = [repo_root / "artefacts", repo_root]
-    ready, text = collect_new_data(base_paths, DATASET_FILE, threshold, resume=resume)
+    ready, text = collect_new_data(
+        base_paths,
+        DATASET_FILE,
+        threshold,
+        resume=resume,
+        allow_ext=allow_ext,
+        deny_ext=deny_ext,
+    )
     metrics = {
         "markov_entropy": round(markov_entropy(text), 2),
         "model_perplexity": round(model_perplexity(text), 2),
@@ -139,6 +155,18 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--metric", choices=["markov", "neural", "both"], default="both")
+    parser.add_argument(
+        "--allow-ext",
+        action="append",
+        dest="allow_ext",
+        help="Allowed file extensions (can be repeated)",
+    )
+    parser.add_argument(
+        "--deny-ext",
+        action="append",
+        dest="deny_ext",
+        help="Disallowed file extensions (can be repeated)",
+    )
     args = parser.parse_args()
 
     metrics = run_orchestrator(
@@ -146,6 +174,8 @@ def main() -> None:
         dataset_dir=Path(args.dataset_dir),
         resume=args.resume,
         dry_run=args.dry_run,
+        allow_ext=args.allow_ext if args.allow_ext is not None else DEFAULT_ALLOW_EXT,
+        deny_ext=args.deny_ext,
     )
     if args.metric == "markov":
         out = {"markov_entropy": metrics["markov_entropy"]}

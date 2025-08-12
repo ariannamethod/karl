@@ -18,3 +18,11 @@ next to the module. The document structure is:
 Legacy files without a `version` key are treated as **version 0** and consist of
 just the `files` mapping. The loader automatically migrates these files when
 reading.
+
+## Extension Filtering
+
+`run_orchestrator` can filter which files are included during data collection.
+Use the command-line options `--allow-ext` and `--deny-ext` to specify allowed
+or disallowed file extensions. `--allow-ext` may be repeated and defaults to the
+set `{'.txt', '.md', '.py'}` when not provided. `--deny-ext` excludes files with
+the given extensions.

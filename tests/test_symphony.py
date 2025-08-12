@@ -98,8 +98,10 @@ def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
 
     captured = {}
 
-    def fake_collect(base_paths, dataset_path, threshold, resume):
+    def fake_collect(base_paths, dataset_path, threshold, resume, *, allow_ext, deny_ext):
         captured["threshold"] = threshold
+        captured["allow_ext"] = list(allow_ext) if allow_ext else None
+        captured["deny_ext"] = list(deny_ext) if deny_ext else None
         return True, "abc"
 
     def fake_prepare(text, dest):
@@ -119,12 +121,32 @@ def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
     assert captured["threshold"] == 123
     assert captured["dataset_dir"] == tmp_path / "data"
     assert captured["train_dataset"] == tmp_path / "data"
+    assert captured["allow_ext"] == list(symphony.DEFAULT_ALLOW_EXT)
+    assert captured["deny_ext"] is None
 
-    monkeypatch.setattr(sys, "argv", ["symphony.py", "--threshold", "5", "--dataset_dir", str(tmp_path / "other")])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "symphony.py",
+            "--threshold",
+            "5",
+            "--dataset_dir",
+            str(tmp_path / "other"),
+            "--allow-ext",
+            ".py",
+            "--allow-ext",
+            ".md",
+            "--deny-ext",
+            ".log",
+        ],
+    )
     symphony.main()
     assert captured["threshold"] == 5
     assert captured["dataset_dir"] == tmp_path / "other"
     assert captured["train_dataset"] == tmp_path / "other"
+    assert captured["allow_ext"] == [".py", ".md"]
+    assert captured["deny_ext"] == [".log"]
 
 
 def test_prepare_char_dataset_empty_text_raises(tmp_path):
