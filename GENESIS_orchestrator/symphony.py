@@ -4,6 +4,7 @@ import logging
 import math
 import subprocess
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
@@ -109,7 +110,7 @@ def _prepare_char_dataset(text: str, dest: Path) -> None:
 
 def train_model(dataset_dir: Path, out_dir: Path) -> None:
     if not dataset_dir.exists():
-        print('dataset not found, skipping training')
+        LOGGER.warning('dataset not found, skipping training')
         return
 
     # determine device; default to cpu if torch is missing
@@ -143,10 +144,33 @@ def train_model(dataset_dir: Path, out_dir: Path) -> None:
     for key, value in hyperparams.items():
         cmd.append(f'--{key}={value}')
     cmd.append(f'--out_dir={weights_dir}')
+
+    LOGGER.info('starting training; device=%s', device)
+    start = time.time()
     try:
-        subprocess.run(cmd, cwd=Path(__file__).parent, check=True)
-    except Exception as exc:
-        print(f'training failed: {exc}')
+        result = subprocess.run(
+            cmd,
+            cwd=Path(__file__).parent,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        LOGGER.info('training stdout:\n%s', result.stdout)
+        if result.stderr:
+            LOGGER.warning('training stderr:\n%s', result.stderr)
+        duration = time.time() - start
+        LOGGER.info('training completed in %.2f seconds', duration)
+    except subprocess.CalledProcessError as exc:
+        duration = time.time() - start
+        LOGGER.error(
+            'training failed after %.2f seconds\nstdout:\n%s\nstderr:\n%s',
+            duration,
+            exc.stdout,
+            exc.stderr,
+        )
+    except Exception:
+        duration = time.time() - start
+        LOGGER.exception('training failed after %.2f seconds', duration)
 
 def main() -> None:
     parser = argparse.ArgumentParser()

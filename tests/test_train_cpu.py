@@ -9,8 +9,15 @@ from GENESIS_orchestrator import symphony  # noqa: E402
 def test_train_model_uses_cpu(monkeypatch, tmp_path):
     captured = {}
 
-    def fake_run(cmd, cwd=None, check=False):
+    def fake_run(cmd, cwd=None, check=False, capture_output=False, text=False):
         captured['cmd'] = cmd
+        captured['capture_output'] = capture_output
+        captured['text'] = text
+
+        class Result:
+            stdout = ''
+            stderr = ''
+        return Result()
 
     monkeypatch.setattr(symphony.subprocess, 'run', fake_run)
     dataset = tmp_path / 'data'
@@ -23,3 +30,5 @@ def test_train_model_uses_cpu(monkeypatch, tmp_path):
     assert '--n_layer=1' in cmd
     assert '--n_head=1' in cmd
     assert '--n_embd=32' in cmd
+    assert captured['capture_output'] is True
+    assert captured['text'] is True
