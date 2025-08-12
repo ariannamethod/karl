@@ -7,6 +7,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Iterable, Tuple
 
+from . import state
+
 DATASET_FILE = Path(__file__).with_name('gen_data.txt')
 DEFAULT_THRESHOLD = 256 * 1024  # 256KB
 
@@ -26,17 +28,33 @@ def _iter_text_files(paths: Iterable[Path], exclude: Iterable[Path]) -> Iterable
                 yield path
 
 def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FILE,
-                     threshold: int = DEFAULT_THRESHOLD) -> Tuple[bool, str]:
-    """Collect text from base_paths and write to dataset_path when threshold exceeded."""
+                     threshold: int = DEFAULT_THRESHOLD, resume: bool = False) -> Tuple[bool, str]:
+    """Collect text from base_paths and write to dataset_path when threshold exceeded.
+
+    When ``resume`` is True, previously processed files are skipped based on stored
+    hashes and sizes.
+    """
+    file_state = state.load_state() if resume else {}
     collected = []
     total = 0
-    for path in _iter_text_files(base_paths, exclude=[dataset_path]):
+    for path in _iter_text_files(base_paths, exclude=[dataset_path, state.STATE_FILE]):
+        try:
+            h = state.file_hash(path)
+            size = path.stat().st_size
+        except Exception:
+            continue
+        key = str(path.resolve())
+        entry = file_state.get(key)
+        if entry and entry.get('hash') == h and entry.get('size') == size:
+            continue
         try:
             text = path.read_text(encoding='utf-8')
         except Exception:
             text = path.read_text(encoding='utf-8', errors='ignore')
         collected.append(text)
         total += len(text.encode('utf-8'))
+        file_state[key] = {'hash': h, 'size': size}
+    state.save_state(file_state)
     if total >= threshold:
         dataset_path.write_text('\n'.join(collected), encoding='utf-8')
         return True, ''.join(collected)
@@ -103,10 +121,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--threshold', type=int, default=DEFAULT_THRESHOLD)
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parents[1]
     base_paths = [repo_root / 'artefacts', repo_root]
-    ready, text = collect_new_data(base_paths, DATASET_FILE, args.threshold)
+    ready, text = collect_new_data(base_paths, DATASET_FILE, args.threshold, resume=args.resume)
     entropy = markov_entropy(text)
     print(json.dumps({'markov_entropy': round(entropy, 2)}))
     if ready and not args.dry_run:
