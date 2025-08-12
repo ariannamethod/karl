@@ -215,4 +215,5 @@ lighthouse_memory.db
 GENESIS_orchestrator/gen_data.txt
 GENESIS_orchestrator/weights/
 GENESIS_orchestrator/data/
+GENESIS_orchestrator/state.json
 

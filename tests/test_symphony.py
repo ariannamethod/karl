@@ -1,9 +1,6 @@
 from pathlib import Path
 
 import pytest
-
-import sys
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy
 
 def test_markov_entropy_simple():
@@ -45,3 +42,18 @@ def test_collect_new_data_excludes_dataset(tmp_path):
     ready, data = collect_new_data([tmp_path], dataset, threshold=1)
     assert ready is True
     assert "old" not in data
+
+
+def test_collect_new_data_resume(tmp_path, monkeypatch):
+    from GENESIS_orchestrator import state as state_module
+    monkeypatch.setattr(state_module, "STATE_FILE", tmp_path / "state.json")
+
+    file = tmp_path / "sample.txt"
+    file.write_text("hello world")
+
+    ready, _ = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1, resume=True)
+    assert ready is True
+
+    ready, data = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1, resume=True)
+    assert ready is False
+    assert data == ""
