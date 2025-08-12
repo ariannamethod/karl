@@ -141,7 +141,7 @@ class MemoryManager:
             return await self.vectorstore.search(query, top_k, user_id=user_id)
         except Exception as e:
             # log and fall back to empty list
-            print(f"Vector search failed: {e}")
+            logger.error(f"Vector search failed: {e}")
             return []
 
     async def last_response(self, user_id: str) -> str:

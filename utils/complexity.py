@@ -1,4 +1,7 @@
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ThoughtComplexityLogger:
     """Log complexity scale and entropy for each turn."""
@@ -14,7 +17,7 @@ class ThoughtComplexityLogger:
             "entropy": float(entropy),
         }
         self.logs.append(record)
-        print(
+        logger.info(
             f"LOG@{record['timestamp']} | Complexity: {complexity_scale} | Entropy: {entropy:.3f}"
         )
 

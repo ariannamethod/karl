@@ -4,6 +4,7 @@ import textwrap
 import datetime
 import httpx
 import asyncio
+import logging
 from .config import settings  # TELEGRAM_TOKEN, PPLX_API_KEY, PINECONE_API_KEY и т.д.
 try:
     from .vector_engine import get_vector_engine  # type: ignore
@@ -16,6 +17,8 @@ except ImportError:  # pragma: no cover
 PPLX_MODEL = "sonar-pro"
 PPLX_API_URL = "https://api.perplexity.ai/chat/completions"
 TIMEOUT = 30
+
+logger = logging.getLogger(__name__)
 
 # ====== хаотический выбор ======
 def _chaotic_pick(strings: list[str]) -> str:
@@ -113,8 +116,8 @@ async def run_genesis1(mode: str = "silent", digest_size: int = 150) -> str | No
 
     # 5. Вывод
     if mode != "silent":
-        print(f"[Genesis-1 Fact]\n{digest}\n")
+        logger.info(f"[Genesis-1 Fact]\n{digest}\n")
     else:
-        print("[Genesis-1] Saved internally.")
+        logger.info("[Genesis-1] Saved internally.")
 
     return digest

@@ -4,8 +4,11 @@ import random
 import textwrap
 from datetime import datetime, timezone
 import re
+import logging
 
 from .config import settings  # settings.PPLX_API_KEY должен быть определён
+
+logger = logging.getLogger(__name__)
 
 # Самая универсальная рабочая модель на сегодня:
 PPLX_MODEL = "sonar-pro"
@@ -55,7 +58,10 @@ async def _call_sonar(messages: list) -> str:
                 break
             except httpx.HTTPError as e:
                 if attempt == max_attempts - 1:
-                    print("[Genesis-2] Sonar HTTP error:", getattr(e.response, "text", ""))
+                    logger.error(
+                        "[Genesis-2] Sonar HTTP error: %s",
+                        getattr(e.response, "text", ""),
+                    )
                     raise
                 await asyncio.sleep(2 ** attempt)
         data = resp.json()
@@ -77,7 +83,9 @@ async def genesis2_sonar_filter(user_prompt: str, draft_reply: str, language: st
 
         return twist
     except Exception as e:
-        print(f"[Genesis-2] Sonar fail {e} @ {datetime.now(timezone.utc).isoformat()}")
+        logger.error(
+            f"[Genesis-2] Sonar fail {e} @ {datetime.now(timezone.utc).isoformat()}"
+        )
         return ""
 
 
