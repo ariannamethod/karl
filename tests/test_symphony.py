@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy  # noqa: E402
@@ -88,3 +90,10 @@ def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
     assert captured["threshold"] == 5
     assert captured["dataset_dir"] == tmp_path / "other"
     assert captured["train_dataset"] == tmp_path / "other"
+
+
+def test_prepare_char_dataset_empty_text_raises(tmp_path):
+    from GENESIS_orchestrator.symphony import _prepare_char_dataset
+
+    with pytest.raises(ValueError, match="non-empty"):
+        _prepare_char_dataset("", tmp_path)

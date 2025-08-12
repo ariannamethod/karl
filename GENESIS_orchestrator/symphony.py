@@ -92,7 +92,11 @@ def markov_entropy(text: str, n: int = 2) -> float:
 def _prepare_char_dataset(text: str, dest: Path) -> None:
     import pickle
     import numpy as np
+
     chars = sorted(set(text))
+    if not text or not chars:
+        raise ValueError("text must be non-empty and contain at least one unique character")
+
     stoi = {ch: i for i, ch in enumerate(chars)}
     itos = {i: ch for i, ch in enumerate(chars)}
     n = len(text)
