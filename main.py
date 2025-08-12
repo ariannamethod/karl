@@ -37,6 +37,7 @@ from utils.repo_monitor import RepoWatcher
 from utils.voice import text_to_voice, voice_to_text
 from utils.context_neural_processor import parse_and_store_file
 from utils.rate_limiter import RateLimitMiddleware
+from GENESIS_orchestrator.symphony import markov_entropy
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -114,6 +115,8 @@ complexity_logger = ThoughtComplexityLogger()
 
 # Force Genesis-3 deep dive on every response when enabled
 FORCE_DEEP_DIVE = False
+# Trigger additional processing when entropy exceeds this threshold
+ENTROPY_THRESHOLD = 4.0
 
 
 def get_user_language(user_id: str, text: str, language_code: str | None = None) -> str:
@@ -165,6 +168,7 @@ class ArtifactCache:
         self.directory = directory
         self.max_items = max_items
         self.cache: OrderedDict[str, str] = OrderedDict()
+        self.entropy: OrderedDict[str, float] = OrderedDict()
 
     def get(self, name: str) -> str:
         path = self.directory / name
@@ -172,15 +176,22 @@ class ArtifactCache:
             raise FileNotFoundError(f"Artifact {name} not found")
         if name in self.cache:
             self.cache.move_to_end(name)
+            logger.info(
+                f"Using cached artifact {name} with entropy {self.entropy.get(name, 0):.2f}"
+            )
             return self.cache[name]
         text = path.read_text()
+        ent = markov_entropy(text)
+        logger.info(f"Loaded artifact {name} with entropy {ent:.2f}")
         self.cache[name] = text
+        self.entropy[name] = ent
         if len(self.cache) > self.max_items:
             self.cache.popitem(last=False)
+            self.entropy.popitem(last=False)
         return text
 
     def get_all_text(self) -> str:
-        texts = []
+        texts: list[str] = []
         if self.directory.exists():
             for p in self.directory.iterdir():
                 if p.is_file():
@@ -188,10 +199,15 @@ class ArtifactCache:
                         texts.append(self.get(p.name))
                     except Exception as e:
                         logger.error(f"Error reading artifact {p}: {e}")
-        return "\n".join(texts)
+        combined = "\n".join(texts)
+        if combined:
+            ent = markov_entropy(combined)
+            logger.info(f"Combined artifact entropy {ent:.2f}")
+        return combined
 
     def clear(self) -> None:
         self.cache.clear()
+        self.entropy.clear()
 
 
 artifact_cache = ArtifactCache(ARTIFACTS_DIR, max_items=10)
@@ -753,6 +769,9 @@ async def handle_message(m: types.Message):
         chat_id = m.chat.id
         private = m.chat.type == "private"
 
+        msg_entropy = markov_entropy(text)
+        logger.info(f"Incoming message entropy for user {user_id}: {msg_entropy:.2f}")
+
         lang = get_user_language(user_id, text, m.from_user.language_code)
         if is_rate_limited(user_id):
             await genesis6_report(user_id, text, lang)
@@ -829,13 +848,17 @@ async def handle_message(m: types.Message):
         vector_ctx = "\n".join(await memory.search_memory(user_id, text))
         artifact_ctx = artifact_cache.get_all_text()
         system_ctx = artifact_ctx + "\n" + mem_ctx + "\n" + vector_ctx
+        entropy_input = "\n".join([text, system_ctx])
+        m_entropy = markov_entropy(entropy_input)
+        logger.info(f"Markov entropy for user {user_id}: {m_entropy:.2f}")
+        high_entropy = m_entropy > ENTROPY_THRESHOLD
 
         # 2) Process with Assistant API and apply reasoning filters
         async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
             draft = await process_with_assistant(text, system_ctx, lang, profile)
             twist = await genesis2_sonar_filter(text, draft, lang)
             deep_dive = ""
-            if (complexity == 3 or FORCE_DEEP_DIVE) and settings.PPLX_API_KEY:
+            if (complexity == 3 or FORCE_DEEP_DIVE or high_entropy) and settings.PPLX_API_KEY:
                 try:
                     logger.info("Attempting Genesis3 deep dive for main response")
                     deep_dive = await genesis3_deep_dive(draft, text)
@@ -850,11 +873,19 @@ async def handle_message(m: types.Message):
                 parts.append(f"\n\n🜂 Investigative Twist → {twist}")
             if deep_dive:
                 parts.append(f"\n\n🜄 Infernal Analysis → {deep_dive}")
+            if high_entropy:
+                parts.append("\n\n⚠️ Entropy Alert → Elevated unpredictability detected.")
             reply = "".join(parts)
 
         # 3) Save to memory and notes
         await memory.save(user_id, text, reply)
-        save_note({"time": datetime.now(timezone.utc).isoformat(), "user": user_id, "query": text, "response": reply})
+        save_note({
+            "time": datetime.now(timezone.utc).isoformat(),
+            "user": user_id,
+            "query": text,
+            "response": reply,
+            "markov_entropy": m_entropy,
+        })
 
         # 4) Send response
         if user_id in VOICE_USERS and client:
