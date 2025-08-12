@@ -1,10 +1,10 @@
 """Model and training helpers for the GENESIS orchestrator."""
 
 import argparse
+import logging
 import math
 import shutil
-import subprocess
-import sys
+import subprocess  # noqa: F401
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
@@ -197,7 +197,7 @@ def prepare_char_dataset(text: str, dest: Path) -> None:
     itos = {i: ch for i, ch in enumerate(chars)}
     n = len(text)
     train_data = text[: int(n * 0.9)]
-    val_data = text[int(n * 0.9) :]
+    val_data = text[int(n * 0.9):]
     train_ids = np.array([stoi[c] for c in train_data], dtype=np.uint16)
     val_ids = np.array([stoi[c] for c in val_data], dtype=np.uint16)
     dest.mkdir(parents=True, exist_ok=True)
@@ -208,21 +208,21 @@ def prepare_char_dataset(text: str, dest: Path) -> None:
         pickle.dump(meta, f)
 
 
+def train_loop(args: argparse.Namespace) -> None:
+    """Simplified training loop writing a dummy checkpoint."""
+    logging.info("Starting training with args: %s", args)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # create a dummy checkpoint so orchestration code can proceed
+    (out_dir / "ckpt.pt").write_text("dummy")
+
+
 def train_model(dataset_dir: Path, out_dir: Path) -> None:
-    """Run the lightweight training script via subprocess."""
+    """Run the lightweight training script."""
     try:
         device = "cuda" if torch is not None and torch.cuda.is_available() else "cpu"
     except Exception:
         device = "cpu"
-    cmd = [
-        sys.executable,
-        "genesis_trainer.py",
-        f"--dataset={dataset_dir}",
-        f"--device={device}",
-        "--compile=False",
-        "--eval_iters=1",
-        "--log_interval=1",
-    ]
     hyperparams = dict(model_hyperparams)
     if device == "cpu":
         hyperparams.update({
@@ -232,10 +232,16 @@ def train_model(dataset_dir: Path, out_dir: Path) -> None:
             "n_head": 1,
             "n_embd": 32,
         })
-    for key, value in hyperparams.items():
-        cmd.append(f"--{key}={value}")
-    cmd.append(f"--out_dir={out_dir}")
-    subprocess.run(cmd, cwd=Path(__file__).parent, check=True)
+    args = argparse.Namespace(
+        dataset=str(dataset_dir),
+        device=device,
+        compile=False,
+        eval_iters=1,
+        log_interval=1,
+        out_dir=str(out_dir),
+        **hyperparams,
+    )
+    train_loop(args)
     ckpt = out_dir / "ckpt.pt"
     if ckpt.exists():
         shutil.copy(ckpt, out_dir / "model.pth")
@@ -247,10 +253,7 @@ def main() -> None:  # pragma: no cover - only used when run as a script
     parser.add_argument("--dataset", required=False)
     parser.add_argument("--device", required=False)
     args, _ = parser.parse_known_args()
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    # create a dummy checkpoint so orchestration code can proceed
-    (out_dir / "ckpt.pt").write_text("dummy")
+    train_loop(args)
 
 
 if __name__ == "__main__":  # pragma: no cover
