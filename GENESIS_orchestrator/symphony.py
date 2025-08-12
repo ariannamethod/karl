@@ -111,18 +111,36 @@ def train_model(dataset_dir: Path, out_dir: Path) -> None:
     if not dataset_dir.exists():
         print('dataset not found, skipping training')
         return
+
+    # determine device; default to cpu if torch is missing
+    try:
+        import torch
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    except Exception:
+        device = 'cpu'
+
     weights_dir = out_dir
     weights_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         sys.executable,
         'train.py',
         f'--dataset={dataset_dir}',
-        '--device=cpu',
+        f'--device={device}',
         '--compile=False',
         '--eval_iters=1',
         '--log_interval=1',
     ]
-    for key, value in model_hyperparams.items():
+
+    hyperparams = dict(model_hyperparams)
+    if device == 'cpu':
+        hyperparams.update({
+            'block_size': 32,
+            'batch_size': 4,
+            'n_layer': 1,
+            'n_head': 1,
+            'n_embd': 32,
+        })
+    for key, value in hyperparams.items():
         cmd.append(f'--{key}={value}')
     cmd.append(f'--out_dir={weights_dir}')
     try:
