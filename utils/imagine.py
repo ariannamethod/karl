@@ -53,8 +53,7 @@ def imagine(prompt: str, size: str = "1024x1024") -> str:
         except Exception as exc:  # pragma: no cover - network
             if attempt == max_retries - 1:
                 return f"Image generation error: {exc}"
-            time.sleep(2)
+            time.sleep(2 ** attempt)
 
 
 __all__ = ["imagine", "enhance_prompt"]
-

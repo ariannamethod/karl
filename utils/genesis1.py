@@ -3,6 +3,7 @@ import random
 import textwrap
 import datetime
 import httpx
+import asyncio
 from .config import settings  # TELEGRAM_TOKEN, PPLX_API_KEY, PINECONE_API_KEY и т.д.
 try:
     from .vector_engine import get_vector_engine  # type: ignore
@@ -44,11 +45,19 @@ async def _call_perplexity(query: str, size: int) -> str:
     ]
     payload = {"model": PPLX_MODEL, "messages": messages, "temperature": 0.98, "max_tokens": size*5}
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        resp = await client.post(PPLX_API_URL, headers={
-            "Authorization": f"Bearer {settings.PPLX_API_KEY}",
-            "Content-Type": "application/json"
-        }, json=payload)
-        resp.raise_for_status()
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                resp = await client.post(PPLX_API_URL, headers={
+                    "Authorization": f"Bearer {settings.PPLX_API_KEY}",
+                    "Content-Type": "application/json"
+                }, json=payload)
+                resp.raise_for_status()
+                break
+            except httpx.HTTPError:
+                if attempt == max_attempts - 1:
+                    raise
+                await asyncio.sleep(2 ** attempt)
         return resp.json()["choices"][0]["message"]["content"].strip()
 
 # ====== основной вызов ======

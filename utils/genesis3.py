@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import os
 import re
@@ -60,12 +61,23 @@ async def genesis3_deep_dive(
     try:
         logger.info("Calling Genesis3 deep dive analysis")
         async with httpx.AsyncClient(timeout=60) as cli:
-            resp = await cli.post(SONAR_PRO_URL, headers=_headers(), json=payload)
-            try:
-                resp.raise_for_status()
-            except Exception as e:
-                logger.error(f"[Genesis-3] HTTP error: {e}\n{resp.text}")
-                raise
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                try:
+                    resp = await cli.post(SONAR_PRO_URL, headers=_headers(), json=payload)
+                    resp.raise_for_status()
+                    break
+                except httpx.HTTPError as e:
+                    if attempt == max_attempts - 1:
+                        logger.error(
+                            f"[Genesis-3] HTTP error: {e}\n{getattr(e.response, 'text', '')}"
+                        )
+                        raise
+                    delay = 2 ** attempt
+                    logger.warning(
+                        f"[Genesis-3] HTTP error: {e}; retrying in {delay}s"
+                    )
+                    await asyncio.sleep(delay)
             content = resp.json()["choices"][0]["message"]["content"].strip()
             final = _extract_final_response(content)
             

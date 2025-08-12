@@ -52,8 +52,16 @@ async def perplexity_search(
     }
 
     async with httpx.AsyncClient(timeout=timeout) as cli:
-        resp = await cli.post(PPLX_API_URL, headers=_headers(), json=payload)
-        resp.raise_for_status()
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                resp = await cli.post(PPLX_API_URL, headers=_headers(), json=payload)
+                resp.raise_for_status()
+                break
+            except httpx.HTTPError:
+                if attempt == max_attempts - 1:
+                    raise
+                await asyncio.sleep(2 ** attempt)
         data = resp.json()
         completion = data["choices"][0]["message"]["content"].strip()
 
