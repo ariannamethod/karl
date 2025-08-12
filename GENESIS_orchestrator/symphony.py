@@ -1,11 +1,11 @@
 import argparse
 import json
-import math
 import sys
 import subprocess
-from collections import Counter
 from pathlib import Path
 from typing import Iterable, Tuple
+
+from .entropy import markov_entropy
 
 DATASET_FILE = Path(__file__).with_name('gen_data.txt')
 DEFAULT_THRESHOLD = 256 * 1024  # 256KB
@@ -41,16 +41,6 @@ def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FI
         dataset_path.write_text('\n'.join(collected), encoding='utf-8')
         return True, ''.join(collected)
     return False, ''.join(collected)
-
-def markov_entropy(text: str, n: int = 2) -> float:
-    if not isinstance(text, str):
-        raise TypeError('text must be a string')
-    if not text:
-        return 0.0
-    n = max(1, min(n, len(text)))
-    counts = Counter(text[i:i + n] for i in range(len(text) - n + 1))
-    total = sum(counts.values())
-    return -sum((c / total) * math.log2(c / total) for c in counts.values())
 
 def _prepare_char_dataset(text: str, dest: Path) -> None:
     import pickle
@@ -103,11 +93,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--threshold', type=int, default=DEFAULT_THRESHOLD)
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--order', type=int, default=2, help='n-gram order for entropy calculation')
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parents[1]
     base_paths = [repo_root / 'artefacts', repo_root]
     ready, text = collect_new_data(base_paths, DATASET_FILE, args.threshold)
-    entropy = markov_entropy(text)
+    entropy = markov_entropy(text, n=args.order)
     print(json.dumps({'markov_entropy': round(entropy, 2)}))
     if ready and not args.dry_run:
         dataset_dir = Path(__file__).parent / 'data' / 'genesis'

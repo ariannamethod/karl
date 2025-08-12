@@ -1,10 +1,7 @@
-from pathlib import Path
-
 import pytest
 
-import sys
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy
+from GENESIS_orchestrator.entropy import markov_entropy, ngram_counter
+from GENESIS_orchestrator.symphony import collect_new_data
 
 def test_markov_entropy_simple():
     text = "abab"
@@ -19,6 +16,20 @@ def test_markov_entropy_empty_and_short():
 def test_markov_entropy_non_string():
     with pytest.raises(TypeError):
         markov_entropy(123)  # type: ignore[arg-type]
+
+
+def test_ngram_counter_stream():
+    stream = ["aba", "ba"]
+    gen = ngram_counter(stream, n=2)
+    first = next(gen)
+    assert first == {"ab": 1, "ba": 1}
+    second = next(gen)
+    assert second == {"ab": 2, "ba": 2}
+
+
+def test_markov_entropy_stream():
+    stream = ["ab", "ab"]
+    assert round(markov_entropy(stream, n=2), 2) == 0.92
 
 def test_collect_new_data(tmp_path):
     file = tmp_path / "sample.txt"
