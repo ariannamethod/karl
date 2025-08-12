@@ -1,12 +1,7 @@
 import asyncio
-from pathlib import Path
-import sys
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
 from utils.context_neural_processor import parse_and_store_file
-
 
 @pytest.mark.asyncio
 async def test_parse_and_store_text(tmp_path):

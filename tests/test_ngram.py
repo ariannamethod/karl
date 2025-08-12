@@ -1,13 +1,8 @@
 import re
-from pathlib import Path
-import sys
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from utils.ngram import NGramModel  # noqa: E402
-
+from utils.ngram import NGramModel
 
 def test_custom_tokenizer_by_words():
     text = "Hello, world!"
@@ -15,19 +10,16 @@ def test_custom_tokenizer_by_words():
     model.fit(text)
     assert ("Hello", "world") in model.ngram_counts
 
-
 def test_laplace_smoothing_nonzero_probability():
     model = NGramModel(n=2, smoothing="laplace")
     model.fit("hello world")
     assert model.probability(("world", "hello")) > 0
-
 
 def test_kneser_ney_smoothing_nonzero_probability():
     model = NGramModel(n=2, smoothing="kneser-ney")
     # context "world" appears but "world hello" bigram does not
     model.fit("hello world hello")
     assert model.probability(("world", "hello")) > 0
-
 
 def test_perplexity_consistent_across_lengths():
     long_text = "a b " * 50

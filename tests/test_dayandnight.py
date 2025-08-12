@@ -1,13 +1,7 @@
-import sys
-from pathlib import Path
-
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from utils.vectorstore import LocalVectorStore  # noqa: E402
-from utils import dayandnight  # noqa: E402
-
+from utils.vectorstore import LocalVectorStore
+from utils import dayandnight
 
 @pytest.mark.asyncio
 async def test_store_and_fetch_last_day(monkeypatch):

@@ -1,9 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-
 def test_train_model_runs_in_process(monkeypatch, tmp_path):
     from GENESIS_orchestrator import genesis_trainer
 

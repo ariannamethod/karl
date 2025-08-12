@@ -1,10 +1,4 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from GENESIS_orchestrator.genesis_trainer import train_model  # noqa: E402
-
+from GENESIS_orchestrator.genesis_trainer import train_model
 
 def test_train_model_uses_cpu(monkeypatch, tmp_path):
     captured = {}

@@ -1,14 +1,9 @@
 from datetime import datetime
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import pytest
 from aiogram.types import Chat, Message, User
 
 from utils.rate_limiter import RateLimitMiddleware
-
 
 @pytest.mark.asyncio
 async def test_rate_limiter_blocks_excess_messages():

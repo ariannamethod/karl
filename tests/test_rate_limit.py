@@ -1,14 +1,9 @@
 import asyncio
 from types import SimpleNamespace
-from pathlib import Path
-import sys
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from main import RATE_LIMIT, USER_MESSAGE_TIMES, handle_message, is_rate_limited  # noqa: E402
-
+from main import RATE_LIMIT, USER_MESSAGE_TIMES, handle_message, is_rate_limited
 
 class DummyMessage:
     def __init__(self):
@@ -21,7 +16,6 @@ class DummyMessage:
 
     async def answer(self, text: str):
         self.answers.append(text)
-
 
 @pytest.mark.asyncio
 async def test_rate_limiter_stops_responses(monkeypatch):

@@ -1,13 +1,8 @@
 import asyncio
 from pathlib import Path
 
-# Ensure project root importable
-import sys
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from utils.coder import kernel_exec  # noqa: E402
-from utils.aml_terminal import terminal  # noqa: E402
-
+from utils.coder import kernel_exec
+from utils.aml_terminal import terminal
 
 def test_kernel_exec(monkeypatch, tmp_path):
     monkeypatch.setenv("LETSGO_DATA_DIR", str(tmp_path))
@@ -19,7 +14,6 @@ def test_kernel_exec(monkeypatch, tmp_path):
 
     result = asyncio.run(_run())
     assert "hello" in result
-
 
 def test_kernel_exec_blocks_malicious_command(monkeypatch, tmp_path):
     monkeypatch.setenv("LETSGO_DATA_DIR", str(tmp_path))

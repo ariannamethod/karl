@@ -6,22 +6,17 @@ from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from GENESIS_orchestrator.entropy import markov_entropy, model_perplexity  # noqa: E402
-from GENESIS_orchestrator.genesis_trainer import prepare_char_dataset  # noqa: E402
-
+from GENESIS_orchestrator.entropy import markov_entropy, model_perplexity
+from GENESIS_orchestrator.genesis_trainer import prepare_char_dataset
 
 def test_markov_entropy_empty_string():
     assert markov_entropy("") == 0.0
-
 
 def test_markov_entropy_various_n():
     text = "ab"
     assert markov_entropy(text, n=1) == pytest.approx(1.0)
     assert markov_entropy(text, n=2) == pytest.approx(0.0)
     assert markov_entropy(text, n=5) == pytest.approx(0.0)
-
 
 def test_prepare_char_dataset_creates_files(tmp_path):
     text = "abcd"
@@ -40,11 +35,9 @@ def test_prepare_char_dataset_creates_files(tmp_path):
     assert meta["vocab_size"] == 4
     assert meta["stoi"]["a"] == 0
 
-
 def test_prepare_char_dataset_empty_text_raises(tmp_path):
     with pytest.raises(ValueError):
         prepare_char_dataset("", tmp_path)
-
 
 def test_model_perplexity_with_mocks(tmp_path, monkeypatch):
     import GENESIS_orchestrator.entropy as entropy

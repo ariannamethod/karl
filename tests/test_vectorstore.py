@@ -1,11 +1,6 @@
 import asyncio
-import sys
-from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from utils.vectorstore import LocalVectorStore  # noqa: E402
-
+from utils.vectorstore import LocalVectorStore
 
 def test_local_vector_store_eviction():
     store = LocalVectorStore(max_size=2)

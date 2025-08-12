@@ -4,12 +4,9 @@ from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from GENESIS_orchestrator import orchestrator as state  # noqa: E402
-from GENESIS_orchestrator.symphony import collect_new_data  # noqa: E402
-from GENESIS_orchestrator.entropy import markov_entropy  # noqa: E402
-
+from GENESIS_orchestrator import orchestrator as state
+from GENESIS_orchestrator.symphony import collect_new_data
+from GENESIS_orchestrator.entropy import markov_entropy
 
 def test_binary_files_are_skipped(tmp_path):
     binary = tmp_path / "bin.dat"
@@ -17,7 +14,6 @@ def test_binary_files_are_skipped(tmp_path):
     ready, data = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1)
     assert ready is False
     assert data == ""
-
 
 def test_collect_new_data_mixed_binary_and_text(tmp_path, monkeypatch):
     monkeypatch.setattr(state, "STATE_FILE", tmp_path / "state.json")
@@ -35,23 +31,19 @@ def test_collect_new_data_mixed_binary_and_text(tmp_path, monkeypatch):
     assert str(text_file.resolve()) in files
     assert str(binary.resolve()) not in files
 
-
 def test_markov_entropy_on_simple_strings():
     assert markov_entropy("aaaa", n=1) == 0.0
     assert round(markov_entropy("abcabc", n=1), 2) == 1.58
-
 
 def test_markov_entropy_with_unicode_symbols():
     text = "😀😃😀😃"
     # Two unique symbols appear twice -> probabilities 0.5 each -> entropy 1 bit
     assert markov_entropy(text, n=1) == 1.0
 
-
 def test_markov_entropy_when_n_exceeds_length():
     text = "ab"
     # n is capped to len(text)=2 giving a single 2-gram -> entropy 0
     assert markov_entropy(text, n=5) == 0.0
-
 
 def test_collect_new_data_with_threshold(tmp_path):
     file = tmp_path / "a.txt"
@@ -62,7 +54,6 @@ def test_collect_new_data_with_threshold(tmp_path):
     assert data == "hi"
     assert dataset.read_text() == "hi"
 
-
 def test_collect_new_data_without_threshold(tmp_path):
     file = tmp_path / "a.txt"
     file.write_text("hi")
@@ -71,7 +62,6 @@ def test_collect_new_data_without_threshold(tmp_path):
     assert ready is False
     assert data == "hi"
     assert not dataset.exists()
-
 
 def test_collect_new_data_with_small_chunk(tmp_path):
     file = tmp_path / "a.txt"
@@ -83,7 +73,6 @@ def test_collect_new_data_with_small_chunk(tmp_path):
     assert ready is True
     assert data == "hello\nworld"
     assert dataset.read_text() == "hello\nworld"
-
 
 def test_run_orchestrator_returns_metrics(monkeypatch, tmp_path):
     from GENESIS_orchestrator import symphony
@@ -98,7 +87,6 @@ def test_run_orchestrator_returns_metrics(monkeypatch, tmp_path):
 
     metrics = symphony.run_orchestrator(dataset_dir=tmp_path)
     assert metrics == {"markov_entropy": 1.0, "model_perplexity": 2.0}
-
 
 def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
     from GENESIS_orchestrator import symphony
@@ -159,7 +147,6 @@ def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
     assert captured["train_dataset"] == tmp_path / "other"
     assert captured["allow_ext"] == [".py", ".md"]
     assert captured["deny_ext"] == [".log"]
-
 
 def test_prepare_char_dataset_empty_text_raises(tmp_path):
     from GENESIS_orchestrator.genesis_trainer import prepare_char_dataset

@@ -1,11 +1,6 @@
 import pytest
-import sys
-from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from utils import genesis3  # noqa: E402
-
+from utils import genesis3
 
 class DummyResponse:
     def __init__(self, data):
@@ -17,9 +12,7 @@ class DummyResponse:
     def json(self):
         return self._data
 
-
 captured = []
-
 
 class DummyClient:
     def __init__(self, *args, **kwargs):
@@ -39,7 +32,6 @@ class DummyClient:
             ]
         }
         return DummyResponse(data)
-
 
 @pytest.mark.asyncio
 async def test_genesis3_deep_dive(monkeypatch):

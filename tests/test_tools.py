@@ -1,17 +1,10 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from utils.tools import split_message  # noqa: E402
-
+from utils.tools import split_message
 
 def test_split_message_short_text():
     text = "hello"
     parts = split_message(text, max_length=10)
     assert parts == [text]
     assert len(parts) == 1
-
 
 def test_split_message_long_paragraph():
     p1 = "A" * 30
@@ -21,7 +14,6 @@ def test_split_message_long_paragraph():
     assert len(parts) == 2
     assert parts[0] == p1
     assert parts[1] == p2
-
 
 def test_split_message_sentence_split():
     s1 = "A" * 20 + "."
@@ -34,7 +26,6 @@ def test_split_message_sentence_split():
     assert parts[1] == s3
     assert len(parts[0]) <= 50
     assert len(parts[1]) <= 50
-
 
 def test_split_message_word_split_overlong_sentence():
     text = " ".join(["word"] * 20)

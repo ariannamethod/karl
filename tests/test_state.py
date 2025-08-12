@@ -1,6 +1,5 @@
 from GENESIS_orchestrator import orchestrator as state
 
-
 def test_file_hash_consistency(tmp_path):
     path = tmp_path / "file.txt"
     path.write_text("content")
@@ -10,7 +9,6 @@ def test_file_hash_consistency(tmp_path):
     path.write_text("different")
     h3 = state.file_hash(path)
     assert h3 != h1
-
 
 def test_load_state_with_corrupted_json(tmp_path, monkeypatch, caplog):
     bad = tmp_path / "state.json"

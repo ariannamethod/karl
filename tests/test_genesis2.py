@@ -1,13 +1,8 @@
 import random
-import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from utils import genesis2  # noqa: E402
-
+from utils import genesis2
 
 def test_build_prompt():
     draft = "draft answer"
@@ -17,7 +12,6 @@ def test_build_prompt():
     assert "GENESIS-2" in messages[0]["content"]
     assert messages[1]["content"].endswith(user)
     assert messages[2]["content"].endswith(draft)
-
 
 @pytest.mark.asyncio
 async def test_genesis2_sonar_filter(monkeypatch):
@@ -32,7 +26,6 @@ async def test_genesis2_sonar_filter(monkeypatch):
     result = await genesis2.genesis2_sonar_filter("user", "draft", "en")
     assert result == "twist!"
 
-
 @pytest.mark.asyncio
 async def test_genesis2_sonar_filter_disabled(monkeypatch):
     monkeypatch.setattr(genesis2.settings, "PPLX_API_KEY", "")
@@ -40,7 +33,6 @@ async def test_genesis2_sonar_filter_disabled(monkeypatch):
 
     result = await genesis2.genesis2_sonar_filter("user", "draft", "en")
     assert result == ""
-
 
 @pytest.mark.asyncio
 async def test_assemble_final_reply(monkeypatch):

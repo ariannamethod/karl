@@ -478,6 +478,12 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Testing
+
+```bash
+pytest
+```
+
 ⸻
 
 10. License
