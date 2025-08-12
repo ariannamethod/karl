@@ -373,22 +373,42 @@ int apk_state_lock_dependency(struct apk_state *state,
 			latest = pkg;
 	}
 
-	/* Choose the best looking candidate.
-	 * FIXME: We should instead try all alternatives. */
-	if (apk_flags & APK_UPGRADE) {
-		use = latest;
-	} else {
-		if (installed != NULL &&
-		    (installed->repos != 0 ||
-		     !(name->flags & APK_NAME_REINSTALL)))
-			use = installed;
-		else
-			use = latest;
-	}
-	if (use == NULL)
-		return -1;
+        /* Choose the best looking candidate first, but try all alternatives */
+        if (apk_flags & APK_UPGRADE) {
+                use = latest;
+        } else {
+                if (installed != NULL &&
+                    (installed->repos != 0 ||
+                     !(name->flags & APK_NAME_REINSTALL)))
+                        use = installed;
+                else
+                        use = latest;
+        }
+        if (use == NULL)
+                return -1;
 
-	return apk_state_lock_name(state, name, use);
+        apk_name_state_t saved = state->name[name->id];
+        int conflicts_num, missing_num;
+        struct apk_package *pkglist[c->num];
+        int num_candidates = 0;
+
+        pkglist[num_candidates++] = use;
+        for (i = 0; i < c->num; i++)
+                if (c->pkgs[i] != use)
+                        pkglist[num_candidates++] = c->pkgs[i];
+
+        for (i = 0; i < num_candidates; i++) {
+                state->name[name->id] = saved;
+                conflicts_num = state->conflicts->num;
+                missing_num = state->missing->num;
+                r = apk_state_lock_name(state, name, pkglist[i]);
+                if (r == 0)
+                        return 0;
+                state->conflicts->num = conflicts_num;
+                state->missing->num = missing_num;
+        }
+        state->name[name->id] = saved;
+        return -1;
 #else
 	/* If any of the choices is installed, we are good. Otherwise,
 	 * the caller needs to install this dependency. */
