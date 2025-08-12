@@ -18,7 +18,11 @@ except Exception:  # pragma: no cover - fallback when torch missing
     nn = None  # type: ignore
     F = None  # type: ignore
 
-from .orchestrator import model_hyperparams
+try:
+    # When imported as part of the package
+    from .orchestrator import model_hyperparams
+except ImportError:  # pragma: no cover - support running as a script
+    from orchestrator import model_hyperparams  # type: ignore
 
 # ----------------------------------------------------------------------------
 # GPT model definition (adapted from model.py)
