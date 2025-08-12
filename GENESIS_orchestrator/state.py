@@ -1,11 +1,22 @@
+"""State persistence and file hashing utilities.
+
+This module stores metadata about processed files and exposes :func:`file_hash`
+which skips hashing files that exceed a configurable size limit.
+"""
+
 import json
 import hashlib
 import logging
+import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 STATE_FILE = Path(__file__).with_name('state.json')
 STATE_VERSION = 1
+
+# Default maximum file size (in bytes) for hashing. Can be overridden via the
+# ``FILE_HASH_MAX_SIZE`` environment variable.
+MAX_HASH_SIZE = int(os.environ.get("FILE_HASH_MAX_SIZE", 5 * 1024 * 1024))
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +76,17 @@ def save_state(state: Dict[str, Any]) -> None:
         except Exception:
             pass
 
-def file_hash(path: Path) -> str:
+def file_hash(path: Path, max_size: Optional[int] = MAX_HASH_SIZE, *, size: Optional[int] = None) -> Optional[str]:
+    """Compute the SHA256 hash of ``path``.
+
+    If ``max_size`` is provided and the file exceeds that size in bytes, the
+    function returns ``None`` instead of hashing to avoid the cost of reading
+    very large files.
+    """
+    actual_size = size if size is not None else path.stat().st_size
+    if max_size is not None and actual_size > max_size:
+        logger.info("skipping hash for %s: size %s exceeds limit %s", path, actual_size, max_size)
+        return None
     h = hashlib.sha256()
     with path.open('rb') as f:
         for chunk in iter(lambda: f.read(8192), b''):

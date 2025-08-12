@@ -1,3 +1,9 @@
+"""Data collection and training utilities.
+
+The module filters processed files by extension and avoids hashing very large
+files to reduce resource usage.
+"""
+
 import argparse
 import json
 import logging
@@ -16,6 +22,9 @@ from .config import dataset_dir as CONFIG_DATASET_DIR, model_hyperparams, thresh
 LOGGER = logging.getLogger(__name__)
 DATASET_FILE = Path(__file__).with_name('gen_data.txt')
 
+# Default set of file extensions considered for processing.
+DEFAULT_ALLOW_EXT = {".txt", ".md", ".py"}
+
 def _looks_binary(path: Path) -> bool:
     try:
         with path.open('rb') as f:
@@ -24,12 +33,27 @@ def _looks_binary(path: Path) -> bool:
     except Exception:
         return True
 
-def _iter_text_files(paths: Iterable[Path], exclude: Iterable[Path]) -> Iterable[Path]:
+def _iter_text_files(
+    paths: Iterable[Path],
+    exclude: Iterable[Path],
+    allow_ext: Iterable[str] = DEFAULT_ALLOW_EXT,
+    deny_ext: Optional[Iterable[str]] = None,
+) -> Iterable[Path]:
+    """Yield text files, filtered by allow/deny extension lists."""
+
     exclude = {p.resolve() for p in exclude}
+    allow = {e.lower() for e in allow_ext} if allow_ext else None
+    deny = {e.lower() for e in deny_ext} if deny_ext else set()
     for base in paths:
         for path in base.rglob('*'):
-            if path.is_file() and path.resolve() not in exclude and not _looks_binary(path):
-                yield path
+            if not path.is_file() or path.resolve() in exclude or _looks_binary(path):
+                continue
+            suffix = path.suffix.lower()
+            if allow is not None and suffix not in allow:
+                continue
+            if suffix in deny:
+                continue
+            yield path
 
 def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FILE,
                      threshold: int = DEFAULT_THRESHOLD, resume: bool = False,
@@ -48,8 +72,10 @@ def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FI
         first = True
         for path in _iter_text_files(base_paths, exclude=[dataset_path, state.STATE_FILE, temp_path]):
             try:
-                h = state.file_hash(path)
                 size = path.stat().st_size
+                h = state.file_hash(path, size=size)
+                if h is None:
+                    continue
             except Exception:
                 log.exception("failed to hash %s", path)
                 continue
