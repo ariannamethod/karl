@@ -1,8 +1,12 @@
 import time
 import hashlib
 import threading
+import logging
 from pathlib import Path
 from typing import Callable, Dict, Iterable
+
+
+logger = logging.getLogger(__name__)
 
 
 class RepoWatcher:
@@ -47,7 +51,7 @@ class RepoWatcher:
             try:
                 self.on_change()
             except Exception:
-                pass
+                logger.error("Error in on_change callback", exc_info=True)
 
     def _scan(self) -> Dict[Path, str]:
         files: Dict[Path, str] = {}
@@ -67,6 +71,7 @@ class RepoWatcher:
                                 h.update(chunk)
                         files[p] = h.hexdigest()
                     except Exception:
+                        logger.error("Failed hashing file %s", p, exc_info=True)
                         continue
         return files
 
@@ -80,4 +85,4 @@ class RepoWatcher:
                 try:
                     self.on_change()
                 except Exception:
-                    pass
+                    logger.error("Error in on_change callback", exc_info=True)
