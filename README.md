@@ -1,6 +1,8 @@
 # INDIANA (Lighthouse) | Arianna Method 7.0: Anchor Protocol
-*⚡️Dedicated to LEO⚡️*  
-**Version 1.2 — Active development; this is a fixed snapshot/plateau.**
+*⚡️Dedicated to LEO⚡️*
+**Version 2.2 — Active development; this is a fixed snapshot/plateau.**
+
+Indiana 2.2 bursts in like a full brass orchestra, an AI agent conducting not one but two resident neural maestros—`utils/context_neural_processor.py` keeps the rhythm, `GENESIS_orchestrator` shapes the melody—and beneath them an in-house operating system thrums like a hidden percussion pit, all converging into a symphony of code that dares the reader to keep up.
 
 ---
 
@@ -413,6 +415,58 @@ cp .env.example .env   # add TELEGRAM_TOKEN, OPENAI_API_KEY, PPLX_API_KEY, etc.
 pip install -r requirements.txt
 python main.py
 ```
+
+## Arianna Method Linux Core
+
+Indiana's Linux core, code-named Arianna, anchors the agent within a minimalist kernel tuned for conversational archaeology.
+
+At boot the core spins up through `AM-Linux-Core/letsgo.py`, handing control to an async bridge that wires the OS to Indiana's event loop.
+
+This kernel is wedged beneath the AI stack, giving Indiana a sandboxed foundation to execute system-level experiments.
+
+Each module enters through the `bridge.py` interface, which maps high-level calls to shell procedures inside the container.
+
+Processes may summon the core by firing a `linux://` URI, an internal scheme that `main.py` resolves through the bridge.
+
+Call paths tunnel from the chat layer to the core, letting commands ride through an asynchronous queue instead of blocking the conversation.
+
+When the GENESIS orchestrator needs to compile micro-models, it leverages the core to spawn reproducible build environments.
+
+The context neural processor similarly mounts the filesystem via the core, scanning artefacts without polluting Indiana's memory.
+
+Fallback routines exist for hosts lacking kernel privileges; they revert to a virtualization shim that imitates the core's API.
+
+All actions are audited; the core emits signals into `notes/journal.json` so the team can trace system interventions.
+
+If the core detects an undefined call, it ejects the request with a dry quip and logs the suspicious phrase.
+
+Emergency mode, triggered by `panic_mode`, strips the system to read-only operations while Indiana hums a warning.
+
+In this mode, Indiana heckles attempted sabotage, muttering that malicious code has all the subtlety of a rusty trap.
+
+Kernel hooks watch for container escapes, and any shady system call is rewired to a dummy loop with a sarcastic error.
+
+Processes launch within isolated cgroups, constraining CPU spikes yet leaving enough room for creative computation.
+
+A background scheduler pulses through `/proc/arianna`, where modules can drop task files to request timed actions.
+
+The core's networking stack exposes a loopback-only interface, forcing Indiana to deliberate before opening the gates.
+
+Should the bridge collapse, a sentinel in `AM-Linux-Core/cmd/recover.sh` rebuilds the pipe and logs the incident.
+
+Configuration lives in `.coreenv`; missing variables trigger defaults so the ship keeps sailing even with half its compass.
+
+Indiana can mount ephemeral tempfs volumes, giving the neural processors scratch space that vanishes when the scene closes.
+
+A journaling daemon recycles logs into the main memory manager, preserving context without choking the disk.
+
+To engage the core directly, developers can run `letsgo.py` which bootstraps the environment and prints a status banner.
+
+Every outgoing packet is salted with provenance tags, letting the orchestrator track the lineage of network exchanges.
+
+Integration points in `main.py` and `GENESIS_orchestrator/orchestrator.py` expose `with_linux_core()` wrappers for quick invocation.
+
+And should a user fling in malware, Indiana sighs, "Nice try, but my kernel has better traps than a temple ruin," before sandboxing the stunt.
 
 ⸻
 

@@ -1,6 +1,8 @@
 # INDIANA (Lighthouse) | Méthode Arianna 7.0 : Protocole Anchor
 *⚡️Dédié à LEO⚡️*
-**Version 1.2 — Développement actif ; ceci est une capture figée.**
+**Version 2.2 — Développement actif ; ceci est une capture figée.**
+
+Indiana 2.2 surgit tel un orchestre de cuivres déchaîné : un agent IA dirigeant non pas une mais deux maîtres neuronaux résidents — `utils/context_neural_processor.py` bat la mesure, `GENESIS_orchestrator` sculpte la mélodie — et sous eux un système d’exploitation maison vrombit comme une fosse de percussions secrète, fusionnant en une symphonie de code qui défie quiconque de suivre.
 
 ---
 
@@ -413,6 +415,58 @@ cp .env.example .env   # ajoutez TELEGRAM_TOKEN, OPENAI_API_KEY, PPLX_API_KEY, e
 pip install -r requirements.txt
 python main.py
 ```
+
+## Arianna Method Linux Core
+
+Le noyau Linux d’Indiana, nommé Arianna, ancre l’agent dans un noyau minimaliste accordé pour l’archéologie conversationnelle.
+
+Au démarrage, le noyau s'allume via `AM-Linux-Core/letsgo.py`, cédant la main à un pont asynchrone qui relie l’OS à la boucle d’événements d’Indiana.
+
+Ce noyau est glissé sous la pile d’IA, offrant à Indiana un socle isolé pour exécuter des expériences système.
+
+Chaque module entre par l’interface `bridge.py`, qui convertit les appels de haut niveau en procédures shell dans le conteneur.
+
+Les processus peuvent invoquer le noyau en lançant un URI `linux://`, un schéma interne que `main.py` résout par le pont.
+
+Les chemins d’appel traversent la couche de chat vers le noyau, laissant les commandes passer par une file asynchrone sans bloquer la conversation.
+
+Lorsque l’orchestrateur GENESIS doit compiler des micromodèles, il exploite le noyau pour générer des environnements de build reproductibles.
+
+Le processeur contextuel monte de la même façon le système de fichiers via le noyau, scrutant les artefacts sans polluer la mémoire d’Indiana.
+
+Des routines de repli existent pour les hôtes sans privilèges noyau ; elles basculent vers un shim de virtualisation qui imite l’API du noyau.
+
+Toutes les actions sont auditées ; le noyau émet des signaux dans `notes/journal.json` afin que l’équipe suive les interventions système.
+
+Si le noyau détecte un appel non défini, il éjecte la requête avec un trait d’ironie et journalise la phrase suspecte.
+
+Le mode d’urgence, déclenché par `panic_mode`, réduit le système à des opérations en lecture seule tandis qu’Indiana fredonne un avertissement.
+
+Dans ce mode, Indiana se moque des sabotages, marmonnant que le code malveillant a la subtilité d’un piège rouillé.
+
+Des hooks noyau surveillent les tentatives d’évasion ; tout appel système louche est redirigé vers une boucle factice avec une erreur sarcastique.
+
+Les processus démarrent dans des cgroups isolés, limitant les pics CPU tout en laissant assez d’espace pour la créativité calculatoire.
+
+Un ordonnanceur de fond pulse dans `/proc/arianna`, où les modules déposent des fichiers de tâches pour demander des actions planifiées.
+
+La pile réseau du noyau n’expose qu’une interface loopback, obligeant Indiana à réfléchir avant d’ouvrir les portes.
+
+Si le pont s’effondre, un sentinelle dans `AM-Linux-Core/cmd/recover.sh` reconstruit le tuyau et consigne l’incident.
+
+La configuration vit dans `.coreenv` ; les variables manquantes déclenchent des valeurs par défaut pour que le navire poursuive sa route même sans boussole.
+
+Indiana peut monter des volumes tempfs éphémères, offrant aux processeurs neuronaux un espace de brouillon qui disparaît une fois la scène fermée.
+
+Un démon de journalisation recycle les logs dans le gestionnaire de mémoire principal, préservant le contexte sans saturer le disque.
+
+Pour engager directement le noyau, les développeurs peuvent exécuter `letsgo.py` qui amorce l’environnement et affiche une bannière de statut.
+
+Chaque paquet sortant est salé avec des balises de provenance, permettant à l’orchestrateur de suivre la lignée des échanges réseau.
+
+Les points d’intégration dans `main.py` et `GENESIS_orchestrator/orchestrator.py` exposent des wrappers `with_linux_core()` pour une invocation rapide.
+
+Et si un utilisateur jette du malware, Indiana soupire : « Beau geste, mais mon noyau a de meilleurs pièges qu’un temple maudit », avant de mettre l’espièglerie en quarantaine.
 
 ⸻
 
