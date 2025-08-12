@@ -9,6 +9,8 @@ from typing import Optional
 
 from openai import OpenAI
 
+from utils.aml_terminal import terminal
+
 
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key) if api_key else None
@@ -113,4 +115,19 @@ async def generate_code(request: str) -> DraftResponse:
     return await CODER_SESSION.draft(request)
 
 
-__all__ = ["interpret_code", "generate_code", "IndianaCoder", "DraftResponse"]
+async def kernel_exec(command: str) -> str:
+    """Run a shell command through the AM-Linux kernel via letsgo.
+
+    The command is executed inside the Arianna core environment and all
+    activity is logged under ``/arianna_core/log``.
+    """
+    return await terminal.run(f"/run {command}")
+
+
+__all__ = [
+    "interpret_code",
+    "generate_code",
+    "IndianaCoder",
+    "DraftResponse",
+    "kernel_exec",
+]

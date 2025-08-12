@@ -46,7 +46,9 @@ except importlib_metadata.PackageNotFoundError:
 
 
 # Configuration
-DATA_DIR = Path.home() / ".letsgo"
+# Allow overriding the data directory so Indiana can route logs to a
+# controlled location such as ``/arianna_core``.
+DATA_DIR = Path(os.getenv("LETSGO_DATA_DIR", Path.home() / ".letsgo"))
 CONFIG_PATH = DATA_DIR / "config"
 
 
