@@ -1,8 +1,10 @@
 import json
 import hashlib
 import logging
+import os
+import tempfile
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 STATE_FILE = Path(__file__).with_name('state.json')
 STATE_VERSION = 1
@@ -53,17 +55,22 @@ def save_state(state: Dict[str, Any]) -> None:
     The state is wrapped with a version header and written to a temporary file
     before being atomically renamed into place.
     """
-    tmp_path = STATE_FILE.with_suffix('.tmp')
     data = {'version': STATE_VERSION, 'files': state}
+    tmp_path: Optional[Path] = None
     try:
-        tmp_path.write_text(json.dumps(data))
-        tmp_path.replace(STATE_FILE)
-    except Exception as exc:
+        with tempfile.NamedTemporaryFile('w', dir=STATE_FILE.parent, delete=False) as tmp_file:
+            json.dump(data, tmp_file)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+            tmp_path = Path(tmp_file.name)
+        os.replace(tmp_path, STATE_FILE)
+    except (IOError, OSError) as exc:
         logger.error("failed to save state file %s: %s", STATE_FILE, exc)
-        try:
-            tmp_path.unlink()
-        except Exception:
-            pass
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
 
 def file_hash(path: Path) -> str:
     h = hashlib.sha256()
