@@ -154,6 +154,17 @@ The design keeps dependencies minimal. The script relies only on the Python stan
 
 As the project evolves, the terminal is expected to grow into a pluggable orchestrator capable of spawning subprocesses, managing asynchronous tasks and negotiating resources with the kernel via cgroups.
 
+When invoked through the Python bridge, `letsgo.py` now runs inside its own cgroup. Resource ceilings can be tuned by setting environment variables before launch:
+
+* `LETSGO_CPU_LIMIT` writes directly to `cpu.max` and controls the CPU quota, e.g. `50000 100000` for 50% of one core.
+* `LETSGO_MEMORY_LIMIT` writes to `memory.max` and caps the memory footprint, e.g. `512M`.
+
+```
+LETSGO_CPU_LIMIT="50000 100000" LETSGO_MEMORY_LIMIT=512M python3 main.py
+```
+
+The limits are applied after the subprocess starts; absent variables leave the cgroup unmodified.
+
 ⸻
 
 Architecture
