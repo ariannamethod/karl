@@ -16,8 +16,8 @@ def _get_vector_store_max_size() -> int | None:
 
 @dataclass
 class Settings:
-    TELEGRAM_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    TELEGRAM_TOKEN: str | None = os.getenv("TELEGRAM_BOT_TOKEN")
+    OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
     PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
     PINECONE_INDEX: str = os.getenv("PINECONE_INDEX", "indiana")
     PINECONE_ENV: str = os.getenv("PINECONE_ENV", "")
@@ -31,6 +31,17 @@ class Settings:
     RATE_LIMIT_PERIOD: float = float(os.getenv("RATE_LIMIT_PERIOD", 60))
     RATE_LIMIT_DELAY: float = float(os.getenv("RATE_LIMIT_DELAY", 0))
     VECTOR_STORE_MAX_SIZE: int | None = _get_vector_store_max_size()
+
+    def __post_init__(self) -> None:
+        required = {
+            "TELEGRAM_BOT_TOKEN": self.TELEGRAM_TOKEN,
+            "OPENAI_API_KEY": self.OPENAI_API_KEY,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise RuntimeError(
+                "Missing required environment variables: " + ", ".join(missing)
+            )
 
 
 settings = Settings()
