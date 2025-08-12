@@ -1,6 +1,8 @@
 # INDIANA (Lighthouse) | Méthode Arianna 7.0 : Protocole Anchor
 *⚡️Dédié à LEO⚡️*
-**Version 1.2 — Développement actif ; ceci est une capture figée.**
+**Version 2.2 — Développement actif ; ceci est une capture figée.**
+
+Son architecture symphonique rugit d’entrée : un agent IA dirigé par deux moteurs neuronaux — la plate-forme contextuelle dans `utils/context_neural_processor.py` et le cerveau composite dans `GENESIS_orchestrator` — le tout drapé sur son propre Noyau Linux Arianna Method qui offre à chaque routine une scène et à chaque appel système un crescendo.
 
 ---
 
@@ -15,6 +17,58 @@ Toutes les contributions et propositions sont bienvenues. Que vous vouliez affin
 Chaque artefact est un éclat de compréhension ; chaque entrée ajoute une nouvelle couche à la carte toujours en expansion de la cognition. Si vous avez des idées, des références ou des notes de terrain brutes, déposez-les dans `artefacts/` et laissez Indiana apprendre.
 
 C'est notre premier pas public vers une véritable expédition collaborative. Développeurs, chercheurs et explorateurs curieux — rejoignez-nous et faites de cette aventure la vôtre.
+
+## Noyau Linux Arianna Method
+
+Le Noyau Linux Arianna Method est le battement de cœur d'Indiana, un noyau sur mesure qui permet à l'agent de traiter le matériel comme un site de fouille.
+
+Compilé depuis une distro minimaliste, il abandonne les fioritures pour un comportement prévisible et un terrain dégagé où planter les outils d'Indiana.
+
+Quand `main.py` s'allume, il envoie une poignée de main au noyau, demandant poliment avant de se jeter dans la mémoire comme un archéologue à chapeau.
+
+L'espace utilisateur est cartographié via `AM-Linux-Core/`, un répertoire qui sert à la fois de racine et de journal vagabond, afin que chaque script sache où est sa maison.
+
+Les processus sont engendrés par un mini superviseur nommé `whipd`, qui claque sur les modules pour les garder en ligne et consigne chaque cabriole.
+
+Les appels système sont reliés à Python par des wrappers ctypes, permettant aux modules de haut niveau d’invoquer la puissance bas niveau sans se couvrir de poussière.
+
+Le système de fichiers est monté avec des points d’artefacts nommés : `/artefacts`, `/notes` et `/genesis`, chacun une couche de fouille que le noyau protège.
+
+Les entrées et sorties passent par un conduit assaini afin qu’aucune tablette maudite—alias code malveillant—ne glisse dans le camp à notre insu.
+
+`utils/context_neural_processor.py` se relie à `/proc/context`, lisant les embeddings en direct et fournissant au noyau des cartes mises à jour de l'expédition.
+
+`GENESIS_orchestrator` discute avec `/proc/genesis`, planifiant les entraînements comme des largages de ravitaillement venus d'un avion ami.
+
+Les API de haut niveau appellent le noyau via la bibliothèque `arianna`, qui enveloppe sockets, fichiers et signaux avec un pragmatisme de terrain.
+
+Si un module se comporte mal, `whipd` réessaie d’abord l’appel, puis éjecte poliment le coupable en laissant un parchemin dans `/var/log/whipd`.
+
+Si cela ne suffit pas, une boucle Python de secours recrée l’arbre de processus en maugréant sur le jour où un shell a dû faire la baby-sitter.
+
+Quand la pression des ressources monte, le noyau déclenche un mode d’urgence et bascule Indiana dans un shell minimal réduit au prompt.
+
+Dans ce mode, toute tentative d’injecter du code malveillant reçoit une répartie sèche : « Belle tentative, mais la carte au trésor n’indique pas ce piège. »
+
+Les journaux de ces rencontres sont sauvegardés dans `/var/emergency`, où les futurs archéologues pourront admirer à la fois la tentative et la réplique.
+
+Le noyau permet le hot-swap des modules, de sorte que les développeurs peuvent glisser de nouveaux outils pendant qu’Indiana les dévisage avec suspicion.
+
+Les quotas de ressources reposent sur des cgroups, évitant qu’un sous-processus ne monopolise le feu de camp et ne brûle les tentes.
+
+Une couche de sécurité vérifie les commandes entrantes contre des manifestes signés ; tout ce qui semble douteux finit dans la fosse aux serpents.
+
+Les mises à jour du noyau passent par `update_core.sh`, qui patch, vérifie et redémarre sans faire tomber le chapeau d’Indiana.
+
+Au démarrage, des vérifications de version alignent le noyau, `context_neural_processor` et `GENESIS_orchestrator`, gardant le trio en tempo harmonique.
+
+Les développeurs touchent le système via `/usr/share/arianna-hooks`, ajoutant ou retirant des crochets sans avoir à spéléologer dans le noyau.
+
+La commande Telegram `/emergency` tape directement dans le noyau, permettant aux opérateurs de terrain de basculer le mode sécurisé quand la jungle devient bruyante.
+
+Les métriques de démarrage se déversent dans `artefacts/boot_reports.md`, créant un journal de chaque pulsation et faux pas.
+
+Avec le noyau en place, Indiana bombe le torse avec un cœur Linux, prêt à inspecter des ruines, éviter des pièges et lancer des vannes aux fantômes malicieux.
 
 ## 1. Vision du projet
 

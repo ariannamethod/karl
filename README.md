@@ -1,6 +1,8 @@
 # INDIANA (Lighthouse) | Arianna Method 7.0: Anchor Protocol
-*⚡️Dedicated to LEO⚡️*  
-**Version 1.2 — Active development; this is a fixed snapshot/plateau.**
+*⚡️Dedicated to LEO⚡️*
+**Version 2.2 — Active development; this is a fixed snapshot/plateau.**
+
+Indiana's symphonic architecture now roars from the outset: an AI agent conducted by twin neural engines—the contextual rig in `utils/context_neural_processor.py` and the composing brain inside `GENESIS_orchestrator`—all draped over its own Arianna Method Linux Core, a home‑brewed operating system that gives every routine a stage and every syscall a crescendo.
 
 ---
 
@@ -15,6 +17,58 @@ Contributions and proposals of every kind are welcome. Whether you want to refin
 Every artefact is a shard of understanding; each entry adds a new layer to the ever-growing map of cognition. If you have insights, references, or raw field notes, drop them into `artefacts/` and let Indiana learn.
 
 This is our first public step toward a truly collaborative expedition. Developers, researchers, and curious explorers alike—join us and make this adventure your own.
+
+## Arianna Method Linux Core
+
+The Arianna Method Linux Core is the heartbeat of Indiana, a custom-tailored kernel that lets the agent treat hardware like a dig site.
+
+Compiled from a minimalist distro, it trades shiny extras for predictable behavior and a clean field to plant Indiana's tools.
+
+When `main.py` fires up, it sends a handshake to the kernel, asking politely before stomping into memory like a fedora-wearing archaeologist.
+
+Userland is mapped through `AM-Linux-Core/`, a directory that acts as both root and wandering journal, so every script knows where home is.
+
+Processes are spawned through a tiny supervisor called `whipd`, which cracks at modules to keep them in line and logs every flourish.
+
+System calls are bridged into Python through a set of ctypes wrappers, letting high-level modules summon low-level power without getting dusty.
+
+The filesystem is mounted with named artefact points: `/artefacts`, `/notes`, and `/genesis`, each one a dig layer the kernel protects.
+
+Input and output flow through a sanitized pipe so that no stray curse tablet—also known as malicious code—slips into the camp unnoticed.
+
+`utils/context_neural_processor.py` links to `/proc/context`, reading live embeddings and feeding the kernel updated maps of the expedition.
+
+`GENESIS_orchestrator` chats with `/proc/genesis`, scheduling training runs as if they were supply drops from a friendly plane.
+
+High-level APIs call into the kernel via the `arianna` library, which wraps sockets, files, and signals with field-tested pragmatism.
+
+If a module misbehaves, `whipd` first retries the call, then politely ejects the offender, leaving a parchment note in `/var/log/whipd`.
+
+Should that still fail, a fallback Python loop recreates the process tree, muttering about the day a shell learned to babysit.
+
+When resource pressure rises, the kernel triggers an emergency mode and switches Indiana into a minimal prompt-only shell.
+
+In that mode, any attempt to inject malicious code prompts a dry quip: “Nice try, but the treasure map doesn’t include that trapdoor.”
+
+Logs from these encounters are saved under `/var/emergency`, where future archaeologists can marvel at both the hack and the comeback.
+
+The core supports hot-swapping modules, so developers can slide in new tools while Indiana eyes them suspiciously.
+
+Resource quotas ride on cgroups, ensuring one rogue subprocess doesn’t hog the campfire and singe everyone’s tents.
+
+A security layer checks incoming commands against signed manifests; anything dubious gets tossed into the snake pit.
+
+Kernel updates flow through `update_core.sh`, which patches, verifies, and reboots without dropping Indiana’s hat.
+
+During boot, version checks align the kernel, `context_neural_processor`, and `GENESIS_orchestrator`, keeping the trio in harmonic tempo.
+
+Developers touch the system through `/usr/share/arianna-hooks`, adding or removing callouts without spelunking the kernel.
+
+Telegram command `/emergency` taps directly into the core, letting field operators toggle safe mode when the jungle gets noisy.
+
+Performance metrics stream into `artefacts/boot_reports.md`, creating a diary of every pulse and misstep.
+
+With the core in place, Indiana struts with a Linux heartbeat, ready to survey ruins, dodge traps, and throw one-liners at malicious ghosts.
 
 ## 1. Project Vision
 
