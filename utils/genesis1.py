@@ -4,7 +4,13 @@ import textwrap
 import datetime
 import httpx
 from .config import settings  # TELEGRAM_TOKEN, PPLX_API_KEY, PINECONE_API_KEY и т.д.
-from .vector_engine import get_vector_engine  # твой модуль памяти
+try:
+    from .vector_engine import get_vector_engine  # type: ignore
+except ImportError:  # pragma: no cover
+    from .vector_engine import IndianaVectorEngine
+
+    def get_vector_engine():  # pragma: no cover
+        return IndianaVectorEngine()
 
 PPLX_MODEL = "sonar-pro"
 PPLX_API_URL = "https://api.perplexity.ai/chat/completions"
@@ -46,10 +52,19 @@ async def _call_perplexity(query: str, size: int) -> str:
         return resp.json()["choices"][0]["message"]["content"].strip()
 
 # ====== основной вызов ======
-async def run_genesis1(mode: str = "silent", digest_size: int = 150):
-    """
-    mode: 'silent' или 'normal'
-    digest_size: ориентировочный размер выжимки в словах
+async def run_genesis1(mode: str = "silent", digest_size: int = 150) -> str | None:
+    """Запустить Genesis-1 и вернуть полученный дайджест.
+
+    Parameters
+    ----------
+    mode:
+        ``"silent"`` или ``"normal"``. В первом случае вывод подавляется.
+    digest_size:
+        Ориентировочный размер выжимки в словах.
+    Returns
+    -------
+    str | None
+        Сгенерированный дайджест или ``None``, если ничего не найдено.
     """
     # 1. Собираем случайные куски из репо (например artefacts/)
     repo_dir = "./artefacts"
@@ -58,13 +73,13 @@ async def run_genesis1(mode: str = "silent", digest_size: int = 150):
         for fn in files:
             try:
                 with open(os.path.join(root, fn), encoding="utf-8") as f:
-                    lines = [l.strip() for l in f if l.strip()]
+                    lines = [line.strip() for line in f if line.strip()]
                     collected.extend(lines)
             except Exception:
                 continue
 
     if not collected:
-        return
+        return None
 
     fragment = _chaotic_pick(collected)
 
@@ -83,14 +98,14 @@ async def run_genesis1(mode: str = "silent", digest_size: int = 150):
 
     # 4. Запись в память
     try:
-        ve.add_memory("genesis1", digest)
+        await ve.add_memory("genesis1", digest)
     except Exception:
         pass
 
     # 5. Вывод
     if mode != "silent":
-        # здесь можно вызвать отправку в чат через Telegram API или return digest
         print(f"[Genesis-1 Fact]\n{digest}\n")
     else:
         print("[Genesis-1] Saved internally.")
 
+    return digest

@@ -21,6 +21,7 @@ from utils.vectorstore import create_vector_store
 from utils.config import settings
 from utils import dayandnight
 from utils import knowtheworld
+from utils.genesis1 import run_genesis1
 from utils.genesis2 import genesis2_sonar_filter
 from utils.genesis3 import genesis3_deep_dive
 from utils.genesis6 import genesis6_profile_filter
@@ -94,6 +95,9 @@ USER_LANGS = LRUCache(maxlen=LANG_CACHE_MAXLEN)
 VOICE_USERS: set[str] = set()
 DIVE_WAITING: set[str] = set()
 CODER_USERS: set[str] = set()
+
+GENESIS1_SILENT = True
+GENESIS1_SCHEDULE_FILE = Path("notes/genesis1_times.json")
 
 MESSAGE_CACHE_MAXLEN = 1000
 USER_MESSAGE_TIMES = LRUCache(maxlen=MESSAGE_CACHE_MAXLEN)
@@ -263,6 +267,41 @@ async def cleanup_user_langs():
         await asyncio.sleep(3600)
 
 
+async def genesis1_daily_task():
+    """Run Genesis-1 once per day at a random non-repeating time."""
+    used: set[int] = set()
+    if GENESIS1_SCHEDULE_FILE.exists():
+        try:
+            used = set(json.loads(GENESIS1_SCHEDULE_FILE.read_text()))
+        except Exception:
+            used = set()
+    while True:
+        if len(used) >= 86400:
+            used.clear()
+        sec = random.randint(0, 86399)
+        while sec in used:
+            sec = random.randint(0, 86399)
+        used.add(sec)
+        GENESIS1_SCHEDULE_FILE.parent.mkdir(exist_ok=True)
+        GENESIS1_SCHEDULE_FILE.write_text(json.dumps(list(used)))
+        now = datetime.now(timezone.utc)
+        run_time = datetime.combine(now.date(), datetime.min.time(), tzinfo=timezone.utc) + timedelta(seconds=sec)
+        if run_time <= now:
+            run_time += timedelta(days=1)
+        await asyncio.sleep((run_time - now).total_seconds())
+        mode = "silent" if GENESIS1_SILENT else "normal"
+        digest = await run_genesis1(mode=mode)
+        if digest:
+            save_note({"time": datetime.now(timezone.utc).isoformat(), "genesis1": digest})
+            if not GENESIS1_SILENT:
+                try:
+                    twist = await genesis2_sonar_filter(digest, digest, "en")
+                    msg = f"☝🏻 {digest}\n\n🜂 Investigative Twist → {twist}"
+                    await send_split_message(bot, chat_id=AGENT_GROUP, text=msg)
+                except Exception as e:
+                    logger.error(f"Genesis1 send failed: {e}")
+
+
 async def run_deep_dive(chat_id: int, user_id: str, query: str, lang: str) -> None:
     """Execute Perplexity search and respond with summary, sources, and insight."""
     try:
@@ -311,6 +350,8 @@ async def setup_bot_commands() -> None:
         types.BotCommand(command="imagine", description="imagine"),
         types.BotCommand(command="coder", description="show me your code"),
         types.BotCommand(command="coderoff", description="code off"),
+        types.BotCommand(command="silent", description="GENESIS silent mode"),
+        types.BotCommand(command="nosilent", description="GENESIS true mode"),
     ]
     try:
         await bot.set_my_commands(commands)
@@ -697,6 +738,28 @@ async def disable_coder(m: types.Message):
     await genesis6_report(user_id, m.text or "", lang)
     await m.answer("☝🏻 coder mode disabled")
 
+
+@dp.message(F.text == "/silent")
+async def enable_genesis_silent(m: types.Message):
+    """Enable Genesis silent mode."""
+    global GENESIS1_SILENT
+    GENESIS1_SILENT = True
+    user_id = str(m.from_user.id)
+    lang = get_user_language(user_id, m.text or "", m.from_user.language_code)
+    await genesis6_report(user_id, m.text or "", lang)
+    await m.answer("☝🏻 genesis silent mode")
+
+
+@dp.message(F.text == "/nosilent")
+async def disable_genesis_silent(m: types.Message):
+    """Disable Genesis silent mode."""
+    global GENESIS1_SILENT
+    GENESIS1_SILENT = False
+    user_id = str(m.from_user.id)
+    lang = get_user_language(user_id, m.text or "", m.from_user.language_code)
+    await genesis6_report(user_id, m.text or "", lang)
+    await m.answer("☝🏻 genesis true mode")
+
 # --- Document Handler ---
 @dp.message(F.document)
 async def handle_document(m: types.Message):
@@ -899,6 +962,7 @@ async def on_startup(app):
     await dayandnight.init_vector_memory()
     await create_background_task(dayandnight.start_daily_task())
     await create_background_task(knowtheworld.start_world_task())
+    await create_background_task(genesis1_daily_task())
     repo_watcher.start()
     await setup_bot_commands()
     await create_background_task(cleanup_old_voice_files())
@@ -978,6 +1042,7 @@ if __name__ == "__main__":
             await dayandnight.init_vector_memory()
             await create_background_task(dayandnight.start_daily_task())
             await create_background_task(knowtheworld.start_world_task())
+            await create_background_task(genesis1_daily_task())
             repo_watcher.start()
             await setup_bot_commands()
             await create_background_task(cleanup_old_voice_files())
