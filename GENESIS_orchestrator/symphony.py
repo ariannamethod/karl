@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Iterable, Tuple
 
 from . import state
+from .config import dataset_dir as CONFIG_DATASET_DIR, model_hyperparams, threshold as DEFAULT_THRESHOLD
 
 DATASET_FILE = Path(__file__).with_name('gen_data.txt')
-DEFAULT_THRESHOLD = 256 * 1024  # 256KB
 
 def _looks_binary(path: Path) -> bool:
     try:
@@ -97,21 +97,15 @@ def train_model(dataset_dir: Path, out_dir: Path) -> None:
     cmd = [
         sys.executable,
         'train.py',
-        f'--dataset={dataset_dir.name}',
+        f'--dataset={dataset_dir}',
         '--device=cpu',
         '--compile=False',
         '--eval_iters=1',
         '--log_interval=1',
-        '--block_size=64',
-        '--batch_size=12',
-        '--n_layer=2',
-        '--n_head=2',
-        '--n_embd=64',
-        '--max_iters=10',
-        '--lr_decay_iters=10',
-        '--dropout=0.0',
-        f'--out_dir={weights_dir}',
     ]
+    for key, value in model_hyperparams.items():
+        cmd.append(f'--{key}={value}')
+    cmd.append(f'--out_dir={weights_dir}')
     try:
         subprocess.run(cmd, cwd=Path(__file__).parent, check=True)
     except Exception as exc:
@@ -120,6 +114,7 @@ def train_model(dataset_dir: Path, out_dir: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--threshold', type=int, default=DEFAULT_THRESHOLD)
+    parser.add_argument('--dataset_dir', type=str, default=str(CONFIG_DATASET_DIR))
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
@@ -129,7 +124,7 @@ def main() -> None:
     entropy = markov_entropy(text)
     print(json.dumps({'markov_entropy': round(entropy, 2)}))
     if ready and not args.dry_run:
-        dataset_dir = Path(__file__).parent / 'data' / 'genesis'
+        dataset_dir = Path(args.dataset_dir)
         _prepare_char_dataset(text, dataset_dir)
         train_model(dataset_dir, Path(__file__).parent / 'weights')
 
