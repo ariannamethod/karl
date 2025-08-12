@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import math
+import os
 import subprocess
 import sys
 from collections import Counter
@@ -13,6 +14,7 @@ from .config import dataset_dir as CONFIG_DATASET_DIR, model_hyperparams, thresh
 
 LOGGER = logging.getLogger(__name__)
 DATASET_FILE = Path(__file__).with_name('gen_data.txt')
+IGNORED_DIR_NAMES = {'.git', '__pycache__', 'venv', '.venv'}
 
 def _looks_binary(path: Path) -> bool:
     try:
@@ -25,9 +27,12 @@ def _looks_binary(path: Path) -> bool:
 def _iter_text_files(paths: Iterable[Path], exclude: Iterable[Path]) -> Iterable[Path]:
     exclude = {p.resolve() for p in exclude}
     for base in paths:
-        for path in base.rglob('*'):
-            if path.is_file() and path.resolve() not in exclude and not _looks_binary(path):
-                yield path
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d not in IGNORED_DIR_NAMES]
+            for name in files:
+                path = Path(root) / name
+                if path.resolve() not in exclude and not _looks_binary(path):
+                    yield path
 
 def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FILE,
                      threshold: int = DEFAULT_THRESHOLD, resume: bool = False,
