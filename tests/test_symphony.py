@@ -3,6 +3,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from GENESIS_orchestrator import state  # noqa: E402
 from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy  # noqa: E402
 
 
@@ -48,7 +49,25 @@ def test_collect_new_data_without_threshold(tmp_path):
     ready, data = collect_new_data([tmp_path], dataset, threshold=10)
     assert ready is False
     assert data == "hi"
-    assert not dataset.exists()
+    assert dataset.read_text() == "hi"
+
+
+def test_collect_new_data_persists_across_runs(tmp_path, monkeypatch):
+    file = tmp_path / "a.txt"
+    file.write_text("abc")
+    dataset = tmp_path / "out.txt"
+    monkeypatch.setattr(state, "STATE_FILE", tmp_path / "state.json")
+
+    ready, data = collect_new_data([tmp_path], dataset, threshold=100, resume=True)
+    assert ready is False
+    assert data == "abc"
+    assert dataset.read_text() == "abc"
+
+    file.write_text("abcXYZ")
+    ready, data = collect_new_data([tmp_path], dataset, threshold=100, resume=True)
+    assert ready is False
+    assert data == "XYZ"
+    assert dataset.read_text() == "abc\nXYZ"
 
 
 def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):

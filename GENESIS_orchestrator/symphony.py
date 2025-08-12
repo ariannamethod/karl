@@ -32,52 +32,65 @@ def _iter_text_files(paths: Iterable[Path], exclude: Iterable[Path]) -> Iterable
 def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FILE,
                      threshold: int = DEFAULT_THRESHOLD, resume: bool = False,
                      logger: Optional[logging.Logger] = None) -> Tuple[bool, str]:
-    """Collect text from base_paths and write to dataset_path when threshold exceeded.
+    """Collect new text and append it incrementally to ``dataset_path``.
 
-    When ``resume`` is True, previously processed files are skipped based on stored
-    hashes and sizes.
+    When ``resume`` is True, previously processed portions of files are skipped
+    based on offsets stored in the state file. Newly discovered text is appended
+    to ``dataset_path`` even if the accumulated size is below ``threshold``. The
+    boolean return value indicates whether the total size of ``dataset_path`` has
+    reached the threshold and is therefore ready for further processing.
     """
+
     log = logger or LOGGER
     file_state = state.load_state() if resume else {}
-    temp_path = dataset_path.with_suffix(dataset_path.suffix + '.tmp')
-    total = 0
-    parts = []
-    with temp_path.open('w', encoding='utf-8') as tmp:
-        first = True
-        for path in _iter_text_files(base_paths, exclude=[dataset_path, state.STATE_FILE, temp_path]):
+
+    parts: list[str] = []
+
+    for path in _iter_text_files(base_paths, exclude=[dataset_path, state.STATE_FILE]):
+        key = str(path.resolve())
+        try:
+            size = path.stat().st_size
+            h = state.file_hash(path)
+        except Exception:
+            log.exception("failed to hash %s", path)
+            continue
+
+        entry = file_state.get(key, {})
+        offset = entry.get('offset', entry.get('size', 0))
+        if offset > size:
+            offset = 0  # file was truncated
+        if offset == size:
+            continue  # nothing new
+
+        try:
+            with path.open('rb') as f:
+                f.seek(offset)
+                data_bytes = f.read()
+            text = data_bytes.decode('utf-8')
+        except Exception:
+            log.exception("failed to read %s", path)
             try:
-                h = state.file_hash(path)
-                size = path.stat().st_size
+                text = data_bytes.decode('utf-8', errors='ignore')
             except Exception:
-                log.exception("failed to hash %s", path)
+                log.exception("failed to read %s even with errors ignored", path)
                 continue
-            key = str(path.resolve())
-            entry = file_state.get(key)
-            if entry and entry.get('hash') == h and entry.get('size') == size:
-                continue
-            try:
-                text = path.read_text(encoding='utf-8')
-            except Exception:
-                log.exception("failed to read %s", path)
-                try:
-                    text = path.read_text(encoding='utf-8', errors='ignore')
-                except Exception:
-                    log.exception("failed to read %s even with errors ignored", path)
-                    continue
-            if not first:
-                tmp.write('\n')
-            tmp.write(text)
-            first = False
-            parts.append(text)
-            total += len(text.encode('utf-8'))
-            file_state[key] = {'hash': h, 'size': size}
+
+        parts.append(text)
+        file_state[key] = {'offset': size, 'hash': h, 'size': size}
+
     state.save_state(file_state)
-    data = ''.join(parts)
-    if total >= threshold:
-        temp_path.replace(dataset_path)
-        return True, data
-    temp_path.unlink(missing_ok=True)
-    return False, data
+
+    data = '\n'.join(parts)
+    if data:
+        dataset_path.parent.mkdir(parents=True, exist_ok=True)
+        if dataset_path.exists() and dataset_path.stat().st_size > 0:
+            with dataset_path.open('a', encoding='utf-8') as ds:
+                ds.write('\n' + data)
+        else:
+            dataset_path.write_text(data, encoding='utf-8')
+
+    dataset_size = dataset_path.stat().st_size if dataset_path.exists() else 0
+    return dataset_size >= threshold, data
 
 def markov_entropy(text: str, n: int = 2) -> float:
     if not isinstance(text, str):
