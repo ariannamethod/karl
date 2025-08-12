@@ -19,6 +19,18 @@ def test_markov_entropy_on_simple_strings():
     assert round(markov_entropy("abcabc", n=1), 2) == 1.58
 
 
+def test_markov_entropy_with_unicode_symbols():
+    text = "😀😃😀😃"
+    # Two unique symbols appear twice -> probabilities 0.5 each -> entropy 1 bit
+    assert markov_entropy(text, n=1) == 1.0
+
+
+def test_markov_entropy_when_n_exceeds_length():
+    text = "ab"
+    # n is capped to len(text)=2 giving a single 2-gram -> entropy 0
+    assert markov_entropy(text, n=5) == 0.0
+
+
 def test_collect_new_data_with_threshold(tmp_path):
     file = tmp_path / "a.txt"
     file.write_text("hi")
