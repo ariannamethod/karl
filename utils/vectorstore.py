@@ -75,7 +75,9 @@ if Pinecone:
                         meta["user"] = user_id
                     if metadata:
                         meta.update(metadata)
-                    self.index.upsert(vectors=[(id, vector, meta)])
+                    await asyncio.to_thread(
+                        self.index.upsert, vectors=[(id, vector, meta)]
+                    )
                     return
                 except Exception as e:
                     logger.error("Pinecone upsert attempt %s failed: %s", attempt + 1, e)
@@ -90,7 +92,7 @@ if Pinecone:
                     params = dict(vector=query_vector, top_k=top_k, include_metadata=True)
                     if user_id:
                         params["filter"] = {"user": {"$eq": user_id}}
-                    results = self.index.query(**params)
+                    results = await asyncio.to_thread(self.index.query, **params)
                     return [m["metadata"]["text"] for m in results["matches"]]
                 except Exception as e:
                     logger.error("Pinecone query attempt %s failed: %s", attempt + 1, e)
