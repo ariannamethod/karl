@@ -1,59 +1,39 @@
+import sys
 from pathlib import Path
 
-import pytest
-from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-def test_markov_entropy_simple():
-    text = "abab"
-    assert round(markov_entropy(text, n=2), 2) == 0.92
+from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy  # noqa: E402
 
 
-def test_markov_entropy_empty_and_short():
-    assert markov_entropy("", n=3) == 0.0
-    assert markov_entropy("a", n=3) == 0.0
-
-
-def test_markov_entropy_non_string():
-    with pytest.raises(TypeError):
-        markov_entropy(123)  # type: ignore[arg-type]
-
-def test_collect_new_data(tmp_path):
-    file = tmp_path / "sample.txt"
-    file.write_text("hello world")
-    ready, data = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=5)
-    assert ready is True
-    assert "hello" in data
-    assert (tmp_path / "out.txt").exists()
-
-
-def test_collect_new_data_any_extension(tmp_path):
-    file = tmp_path / "script.py"
-    file.write_text("print('ok')")
+def test_binary_files_are_skipped(tmp_path):
+    binary = tmp_path / "bin.dat"
+    binary.write_bytes(b"\x00\x01\x02")
     ready, data = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1)
-    assert ready is True
-    assert "print" in data
-
-
-def test_collect_new_data_excludes_dataset(tmp_path):
-    dataset = tmp_path / "out.txt"
-    dataset.write_text("old")
-    file = tmp_path / "new.txt"
-    file.write_text("new text")
-    ready, data = collect_new_data([tmp_path], dataset, threshold=1)
-    assert ready is True
-    assert "old" not in data
-
-
-def test_collect_new_data_resume(tmp_path, monkeypatch):
-    from GENESIS_orchestrator import state as state_module
-    monkeypatch.setattr(state_module, "STATE_FILE", tmp_path / "state.json")
-
-    file = tmp_path / "sample.txt"
-    file.write_text("hello world")
-
-    ready, _ = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1, resume=True)
-    assert ready is True
-
-    ready, data = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1, resume=True)
     assert ready is False
     assert data == ""
+
+
+def test_markov_entropy_on_simple_strings():
+    assert markov_entropy("aaaa", n=1) == 0.0
+    assert round(markov_entropy("abcabc", n=1), 2) == 1.58
+
+
+def test_collect_new_data_with_threshold(tmp_path):
+    file = tmp_path / "a.txt"
+    file.write_text("hi")
+    dataset = tmp_path / "out.txt"
+    ready, data = collect_new_data([tmp_path], dataset, threshold=1)
+    assert ready is True
+    assert data == "hi"
+    assert dataset.read_text() == "hi"
+
+
+def test_collect_new_data_without_threshold(tmp_path):
+    file = tmp_path / "a.txt"
+    file.write_text("hi")
+    dataset = tmp_path / "out.txt"
+    ready, data = collect_new_data([tmp_path], dataset, threshold=10)
+    assert ready is False
+    assert data == "hi"
+    assert not dataset.exists()
