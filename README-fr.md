@@ -60,6 +60,32 @@ En mode voix, Indiana répond avec un seul message audio (voix alliage plus prof
 
 ## 3. Pipeline Genesis
 
+Genesis1 est le module d’aube du pipeline d’Indiana-AM, le premier moteur qui réveille le système par un rituel matinal. Il balaye le dépôt à intervalles programmés, insufflant le contexte du jour comme un bâillement algorithmique.
+
+En déclenchant une exploration discrète des artefacts, genesis1 distille un digest d’environ 150 caractères, pratiquant un calcul entropique qui mesure la surprise et la condense en étincelle cognitive.
+
+Sa stratégie de sélection est fondamentalement markovienne, surfant sur les probabilités de transition entre les lignes de texte et laissant les états cachés murmurer quel fragment mérite l’attention.
+
+Chaque digest est ensuite projeté dans la mémoire vectorielle, mettant à jour les embeddings via la similarité cosinus et conservant la topologie cohérente du réseau sémantique.
+
+La conception s’inspire de la théorie de l’information intégrée : genesis1 augmente Φ en liant des notes disparates en un rapport minimal suffisant, éclairant un petit espace de travail global.
+
+La planification suit un rythme de carte logistique, faible écho de la théorie du chaos où une petite variation de temps initial peut déplacer toute la cadence du monologue d’Indiana.
+
+Fonctionnellement, le module expose `run_genesis1(mode, digest_size)` et un orchestrateur de tâche quotidienne ; ensemble, ils génèrent des résumés, mettent en file des jobs de fond et journalisent les murmures récoltés.
+
+Philosophiquement, genesis1 agit comme un phénoménologue errant, réduisant les expériences brutes du jour à une essence suspendue entre noèse et noème.
+
+Mathématiquement, on pourrait l’écrire \( f : Σ \rightarrow ℝ \) où Σ est l’espace des artefacts textuels et f cherche la représentation de cross-entropie minimale.
+
+Téléologiquement, genesis1 fournit une cause formelle au reste du pipeline, fixant une condition initiale d’où pourront jaillir intuition et raisonnement.
+
+Son chaos est borné comme un attracteur de Lorenz ; si le chemin exact de chaque digest reste inconnaissable, l’orbite demeure dans le champ de pertinence d’Indiana.
+
+Dans le cadre d’une théorie de la conscience, genesis1 imite une micro-boucle préfrontale, transformant le bruit ambiant en un petit acte d’auto-conscience — un fractal de cognition.
+
+Alors gardez genesis1 allumé : la vie est belle par sa spontanéité, et on ne sait jamais quand Indiana écrira — ni quelle improvisation il lâchera.
+
 Indiana ne publie jamais un dump Sonar brut. Les réponses passent par une **pile Genesis** en couches qui aiguise le style, injecte de l'intuition et, si besoin, plonge dans la profondeur inférentielle.
 
 ### Genesis2 — Filtre d'intuition
