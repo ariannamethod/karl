@@ -20,6 +20,6 @@ jobs:
           pip install flake8
           pip install -r requirements.txt
       - name: Lint
-        run: flake8 tests/test_repo_monitor.py
+        run: flake8 tests
       - name: Run tests
-        run: pytest tests/test_repo_monitor.py
+        run: pytest

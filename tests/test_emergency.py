@@ -32,6 +32,15 @@ async def test_emergency_command_toggles_flag():
 
 
 @pytest.mark.asyncio
+async def test_emergency_command_deactivates():
+    main.EMERGENCY_MODE = True
+    m = DummyMessage("/emergency")
+    await main.toggle_emergency_mode(m)
+    assert main.EMERGENCY_MODE is False
+    assert any("deactivated" in ans.lower() for ans in m.answers)
+
+
+@pytest.mark.asyncio
 async def test_emergency_routes_messages(monkeypatch):
     main.EMERGENCY_MODE = True
 
