@@ -210,3 +210,8 @@ __marimo__/
 assistants.json
 notes/journal.json
 lighthouse_memory.db
+
+# Genesis orchestrator artifacts
+GENESIS_orchestrator/gen_data.txt
+GENESIS_orchestrator/weights/
+
