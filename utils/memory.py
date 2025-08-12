@@ -24,7 +24,6 @@ class MemoryManager:
         self.vectorstore = vectorstore or create_vector_store()
         self._db: Optional[aiosqlite.Connection] = None
         self._lock = asyncio.Lock()
-        self._tasks: set[asyncio.Task] = set()
         self.max_records_per_user = max_records_per_user
 
     async def connect(self) -> aiosqlite.Connection:
@@ -37,10 +36,7 @@ class MemoryManager:
         return self._db
 
     async def close(self) -> None:
-        """Close the shared database connection and wait for background tasks."""
-        if self._tasks:
-            await asyncio.gather(*self._tasks, return_exceptions=True)
-            self._tasks.clear()
+        """Close the shared database connection."""
         if self._db is not None:
             await self._db.close()
             self._db = None
@@ -81,7 +77,7 @@ class MemoryManager:
             (user_id, self.max_records_per_user),
         )
 
-    async def save(self, user_id: str, query: str, response: str):
+    async def save(self, user_id: str, query: str, response: str) -> bool:
         """Save user query and response to memory database and vector store."""
         ts = datetime.now(timezone.utc).isoformat()
         db = await self.connect()
@@ -91,8 +87,9 @@ class MemoryManager:
         )
         await self._prune_user_records(db, user_id)
         await db.commit()
+        status = True
         if self.vectorstore:
-            async def _store_vector():
+            async def _store_vector() -> bool:
                 for attempt in range(2):
                     try:
                         await self.vectorstore.store(
@@ -100,15 +97,18 @@ class MemoryManager:
                             f"Q: {query}\nA: {response}",
                             user_id=user_id,
                         )
-                        break
+                        return True
                     except Exception:
                         logger.exception("Vector store failed (attempt %d)", attempt + 1)
                         if attempt == 0:
                             await asyncio.sleep(1)
+                return False
 
-            task = asyncio.create_task(_store_vector())
-            self._tasks.add(task)
-            task.add_done_callback(self._tasks.discard)
+            async with asyncio.TaskGroup() as tg:
+                task = tg.create_task(_store_vector())
+            status = task.result()
+
+        return status
 
     async def retrieve(self, user_id: str, query: str) -> str:
         """Retrieve last 5 responses for a given user as context."""
