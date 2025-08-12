@@ -6,7 +6,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from collections import OrderedDict
-from typing import Any, Awaitable
+from typing import Any
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler
@@ -224,23 +224,19 @@ background_tasks: list[asyncio.Task] = []
 task_group: asyncio.TaskGroup | None = None
 
 
-async def create_background_task(coro: Awaitable[Any]) -> asyncio.Task:
-    """Create and track background tasks.
-
-    Uses ``asyncio.TaskGroup`` when available to manage tasks automatically.
-    All created tasks are stored in ``background_tasks`` for explicit cleanup
-    on shutdown.
-    """
+async def start_background_tasks() -> None:
+    """Start and track background tasks using :class:`asyncio.TaskGroup`."""
     global task_group
-    if hasattr(asyncio, "TaskGroup"):
-        if task_group is None:
-            task_group = asyncio.TaskGroup()
-            await task_group.__aenter__()
-        task = task_group.create_task(coro)
-    else:
-        task = asyncio.create_task(coro)
-    background_tasks.append(task)
-    return task
+    task_group = asyncio.TaskGroup()
+    await task_group.__aenter__()
+    tasks = [
+        task_group.create_task(dayandnight.start_daily_task()),
+        task_group.create_task(knowtheworld.start_world_task()),
+        task_group.create_task(genesis1_daily_task()),
+        task_group.create_task(cleanup_old_voice_files()),
+        task_group.create_task(cleanup_user_langs()),
+    ]
+    background_tasks.extend(tasks)
 
 
 async def cleanup_old_voice_files():
@@ -960,13 +956,9 @@ async def on_startup(app):
     await memory.connect()
     await knowtheworld.memory.connect()
     await dayandnight.init_vector_memory()
-    await create_background_task(dayandnight.start_daily_task())
-    await create_background_task(knowtheworld.start_world_task())
-    await create_background_task(genesis1_daily_task())
+    await start_background_tasks()
     repo_watcher.start()
     await setup_bot_commands()
-    await create_background_task(cleanup_old_voice_files())
-    await create_background_task(cleanup_user_langs())
 
     # Perform initial GENESIS training and record entropy
     update_and_train()
@@ -985,7 +977,14 @@ async def on_shutdown(app):
     """Cleanup on shutdown."""
     try:
         if task_group is not None:
-            await task_group.__aexit__(None, None, None)
+            try:
+                await task_group.__aexit__(None, None, None)
+            except* Exception:
+                pass
+            for task in background_tasks:
+                exc = task.get_exception() if hasattr(task, "get_exception") else task.exception()
+                if exc:
+                    logger.error("Background task error", exc_info=exc)
         else:
             for task in background_tasks:
                 task.cancel()
@@ -1040,13 +1039,9 @@ if __name__ == "__main__":
             await memory.connect()
             await knowtheworld.memory.connect()
             await dayandnight.init_vector_memory()
-            await create_background_task(dayandnight.start_daily_task())
-            await create_background_task(knowtheworld.start_world_task())
-            await create_background_task(genesis1_daily_task())
+            await start_background_tasks()
             repo_watcher.start()
             await setup_bot_commands()
-            await create_background_task(cleanup_old_voice_files())
-            await create_background_task(cleanup_user_langs())
 
             # Perform initial GENESIS training and record entropy
             update_and_train()
