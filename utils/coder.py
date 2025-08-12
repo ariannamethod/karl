@@ -6,12 +6,19 @@ from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+import sys
 
 from openai import OpenAI
 
 from utils.aml_terminal import terminal
 from utils.genesis2 import genesis2_sonar_filter
 from utils.security import is_blocked, log_blocked
+
+# Import core command definitions from the LetsGo terminal
+CORE_DIR = Path(__file__).resolve().parent.parent / "AM-Linux-Core"
+if str(CORE_DIR) not in sys.path:
+    sys.path.append(str(CORE_DIR))
+from letsgo import CORE_COMMANDS  # type: ignore  # noqa: E402
 
 
 api_key = os.getenv("OPENAI_API_KEY")
@@ -104,6 +111,11 @@ class IndianaCoder:
 CODER_SESSION = IndianaCoder()
 
 
+def format_core_commands() -> str:
+    """Return available core commands with descriptions."""
+    return "\n".join(f"{cmd} - {desc}" for cmd, (_, desc) in CORE_COMMANDS.items())
+
+
 async def interpret_code(prompt: str) -> str:
     """Interpret code or handle follow-up questions with context memory."""
     markers = ["def ", "class ", "import ", "\n"]
@@ -139,4 +151,6 @@ __all__ = [
     "IndianaCoder",
     "DraftResponse",
     "kernel_exec",
+    "format_core_commands",
+    "CORE_COMMANDS",
 ]
