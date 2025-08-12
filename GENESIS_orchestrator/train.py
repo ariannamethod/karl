@@ -16,6 +16,7 @@ $ torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123
 (If your cluster does not have Infiniband interconnect prepend NCCL_IB_DISABLE=1)
 """
 
+import argparse
 import os
 import time
 import math
@@ -84,8 +85,39 @@ dropout = model_hyperparams.get('dropout', dropout)
 max_iters = model_hyperparams.get('max_iters', max_iters)
 lr_decay_iters = model_hyperparams.get('lr_decay_iters', lr_decay_iters)
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--out_dir', type=str, default=out_dir)
+parser.add_argument('--dataset', type=str, default=dataset)
+parser.add_argument('--device', type=str, default=device)
+parser.add_argument('--compile', type=lambda x: str(x).lower() == 'true', default=compile)
+parser.add_argument('--eval_iters', type=int, default=eval_iters)
+parser.add_argument('--log_interval', type=int, default=log_interval)
+parser.add_argument('--block_size', type=int, default=block_size)
+parser.add_argument('--batch_size', type=int, default=batch_size)
+parser.add_argument('--n_layer', type=int, default=n_layer)
+parser.add_argument('--n_head', type=int, default=n_head)
+parser.add_argument('--n_embd', type=int, default=n_embd)
+parser.add_argument('--max_iters', type=int, default=max_iters)
+parser.add_argument('--lr_decay_iters', type=int, default=lr_decay_iters)
+parser.add_argument('--dropout', type=float, default=dropout)
+args = parser.parse_args()
+
+out_dir = args.out_dir
+dataset = args.dataset
+device = args.device
+compile = args.compile
+eval_iters = args.eval_iters
+log_interval = args.log_interval
+block_size = args.block_size
+batch_size = args.batch_size
+n_layer = args.n_layer
+n_head = args.n_head
+n_embd = args.n_embd
+max_iters = args.max_iters
+lr_decay_iters = args.lr_decay_iters
+dropout = args.dropout
+
 config_keys = [k for k,v in globals().items() if not k.startswith('_') and isinstance(v, (int, float, bool, str))]
-exec(open('configurator.py').read()) # overrides from command line or config file
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
 # -----------------------------------------------------------------------------
 
