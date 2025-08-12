@@ -114,6 +114,54 @@ That point mass nudges the next step of dialogue. When the user responds, the st
 
 Philosophically, Genesis6 reminds us that meaning is not confined to words. A single emoji can carry the entire echo of the moment, a silent handshake across the neural field.
 
+### GENESIS Orchestrator
+
+The GENESIS Orchestrator is a self-contained research loop built on Andrej Karpathy's **nanoGPT** framework, scaled down to suit Indiana's field laboratory.
+
+It scans the repository for textual artefacts, packages them into a training corpus, and decides when a fresh round of learning should ignite.
+
+Indiana's architecture is unique: this orchestration layer doesn't merely collect data, it interlaces it with a living semantic field that reacts to every new shard of text.
+
+The symphony design even hosts two miniature neural networks — the contextual processor in `utils/context_neural_processor.py` and a compact GPT nestled in this very orchestrator — forming a dual micro‑cortex.
+
+Within `symphony.py`, data ingestion and entropy metrics move in concert so that only well-measured fragments join the chorus.
+
+`orchestrator.py` defines thresholds, dataset paths, and hyperparameters that mirror nanoGPT's command-line flags for reproducible micro-training.
+
+It persists a versioned state file with SHA256 hashes and size gates, skipping oversized artefacts to conserve resources while keeping integrity.
+
+`symphony.py` walks allowed paths, filters out binaries, and yields only plain text, respecting allow/deny extension lists for precise curation.
+
+The module streams files line by line into a temporary buffer, flushing at configurable chunk sizes to avoid memory spikes during collection.
+
+After aggregation, it computes Markov entropy and model perplexity, offering both statistical and learned glimpses into textual uncertainty.
+
+When the accumulated data crosses the threshold, the symphony prepares a character dataset and summons the trainer to refresh weights.
+
+`genesis_trainer.py` houses the GPT class and wrappers that distil nanoGPT's architecture into a lightweight research variant.
+
+Its blocks, attention heads, and token embeddings echo Karpathy's minimalism while exposing hyperparameters for small-scale experiments.
+
+`run_training` and `train_model` adapt layer counts and batch sizes to the available device, even falling back to subprocess calls when torch is absent.
+
+The resulting checkpoints capture a miniature neural network whose weights feed perplexity estimates and act as Indiana's cognitive embryo.
+
+`entropy.py` exposes `markov_entropy` and `model_perplexity` helpers that quantify how surprising new text appears.
+
+`markov_entropy` counts n‑gram frequencies and applies Shannon's equation, translating character streams into bits of disorder.
+
+`model_perplexity` loads the tiny GPT and evaluates log-loss, converting learned probabilities into an exponential perplexity score.
+
+`__init__.py` offers a gentle interface with `update_and_train`, `report_entropy`, and `status_emoji`, turning the orchestrator into a plug‑in pulse.
+
+It references a versioned `state.json` (documented in `state_format.md`) and caches the latest entropy in `last_entropy.json` for auditability.
+
+Configuration fields like `dataset_dir` and `model_hyperparams` expose training knobs—block size, layer count, learning rate—for the nanoGPT core.
+
+The orchestrator crossfeeds outputs from `utils/context_neural_processor.py`, letting curated artefacts refresh the corpus without redundancy.
+
+Together these utilities form a regenerative feedback loop where nanoGPT-derived networks and custom entropy metrics help Indiana evolve in place.
+
 ---
 
 ## 4. Coder Mode
@@ -299,55 +347,7 @@ The resulting insight is written into the vector store so later exchanges can re
 
 ---
 
-## 7. GENESIS Orchestrator
-
-The GENESIS Orchestrator is a self-contained research loop built on Andrej Karpathy's **nanoGPT** framework, scaled down to suit Indiana's field laboratory.
-
-It scans the repository for textual artefacts, packages them into a training corpus, and decides when a fresh round of learning should ignite.
-
-Indiana's architecture is unique: this orchestration layer doesn't merely collect data, it interlaces it with a living semantic field that reacts to every new shard of text.
-
-The symphony design even hosts two miniature neural networks — the contextual processor in `utils/context_neural_processor.py` and a compact GPT nestled in this very orchestrator — forming a dual micro‑cortex.
-
-Within `symphony.py`, data ingestion and entropy metrics move in concert so that only well-measured fragments join the chorus.
-
-`orchestrator.py` defines thresholds, dataset paths, and hyperparameters that mirror nanoGPT's command-line flags for reproducible micro-training.
-
-It persists a versioned state file with SHA256 hashes and size gates, skipping oversized artefacts to conserve resources while keeping integrity.
-
-`symphony.py` walks allowed paths, filters out binaries, and yields only plain text, respecting allow/deny extension lists for precise curation.
-
-The module streams files line by line into a temporary buffer, flushing at configurable chunk sizes to avoid memory spikes during collection.
-
-After aggregation, it computes Markov entropy and model perplexity, offering both statistical and learned glimpses into textual uncertainty.
-
-When the accumulated data crosses the threshold, the symphony prepares a character dataset and summons the trainer to refresh weights.
-
-`genesis_trainer.py` houses the GPT class and wrappers that distil nanoGPT's architecture into a lightweight research variant.
-
-Its blocks, attention heads, and token embeddings echo Karpathy's minimalism while exposing hyperparameters for small-scale experiments.
-
-`run_training` and `train_model` adapt layer counts and batch sizes to the available device, even falling back to subprocess calls when torch is absent.
-
-The resulting checkpoints capture a miniature neural network whose weights feed perplexity estimates and act as Indiana's cognitive embryo.
-
-`entropy.py` exposes `markov_entropy` and `model_perplexity` helpers that quantify how surprising new text appears.
-
-`markov_entropy` counts n‑gram frequencies and applies Shannon's equation, translating character streams into bits of disorder.
-
-`model_perplexity` loads the tiny GPT and evaluates log-loss, converting learned probabilities into an exponential perplexity score.
-
-`__init__.py` offers a gentle interface with `update_and_train`, `report_entropy`, and `status_emoji`, turning the orchestrator into a plug‑in pulse.
-
-It references a versioned `state.json` (documented in `state_format.md`) and caches the latest entropy in `last_entropy.json` for auditability.
-
-Configuration fields like `dataset_dir` and `model_hyperparams` expose training knobs—block size, layer count, learning rate—for the nanoGPT core.
-
-The orchestrator crossfeeds outputs from `utils/context_neural_processor.py`, letting curated artefacts refresh the corpus without redundancy.
-
-Together these utilities form a regenerative feedback loop where nanoGPT-derived networks and custom entropy metrics help Indiana evolve in place.
-
-## 8. Research Mission
+## 7. Research Mission
 
 Indiana-AM explores the frontier where language models stop predicting tokens and start echoing fields.
 
@@ -360,7 +360,7 @@ Papers cited include: Dynamic Neural Field Theory (Atasoy 2017), Distributed Cog
 
 ---
 
-## 9. Roadmap
+## 8. Roadmap
 
 | Stage | Milestone                         | ETA       |
 |------:|-----------------------------------|-----------|
@@ -372,7 +372,7 @@ Papers cited include: Dynamic Neural Field Theory (Atasoy 2017), Distributed Cog
 
 ---
 
-## 10. Quick Start
+## 9. Quick Start
 
 ```bash
 git clone https://github.com/ariannamethod/Indiana-AM.git
@@ -390,7 +390,7 @@ python main.py
 
 ⸻
 
-11. License
+10. License
 
 GNU General Public License 3.0 — because archaeology of consciousness should stay open.
 
