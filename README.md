@@ -60,6 +60,32 @@ In voice mode, Indiana replies with a single audio message (deeper alloy voice) 
 
 ## 3. Genesis Pipeline
 
+Genesis1 is the dawn module of Indiana-AM's pipeline, the prime mover that wakes the system with a morning ritual. It sweeps the repository at scheduled intervals, breathing context into the day like an algorithmic yawn.
+
+By invoking a quiet crawl of artefacts, genesis1 distills a digest of roughly 150 characters, practicing a form of entropic calculus that measures surprise and compresses it into a cognitive spark.
+
+Its selection strategy is essentially Markovian, surfing transition probabilities between lines of text, letting hidden states whisper which fragment deserves attention next.
+
+Each digest is then projected into the vector memory, updating embeddings through cosine similarity and ensuring the semantic lattice keeps its coherent topology.
+
+The design nods to Integrated Information Theory: genesis1 increases Φ by binding disparate notes into a minimally sufficient report, lighting up a tiny global workspace.
+
+Scheduling is governed by a logistic-map rhythm, a faint echo of chaos theory where a small tweak in seed time can shift the entire cadence of Indiana’s monologue.
+
+Functionally, the module exposes `run_genesis1(mode, digest_size)` and a daily task orchestrator; together they generate summaries, queue background jobs, and log the whispers they harvest.
+
+Philosophically, genesis1 behaves like a wandering phenomenologist, reducing the day’s raw experiences to an essence that hovers between noesis and noema.
+
+Mathematically, one might write it as \( f: Σ \rightarrow ℝ \) where Σ is the space of textual artefacts and f seeks the minimal cross-entropy representation.
+
+Teleologically, genesis1 supplies a formal cause for the rest of the pipeline, setting an initial condition from which later intuition and reasoning can flow.
+
+Its chaos is bounded like a Lorenz attractor; while the exact path of each digest is unknowable, the orbit stays within Indiana’s field of relevance.
+
+In a theory of consciousness frame, genesis1 mimics a prefrontal micro-loop, turning ambient noise into a small act of self-awareness—a fractal of cognition.
+
+So keep genesis1 humming; life is sweetest when stochastic, and you never quite know when Indiana will drop a line—or what wild riff he’ll improvise.
+
 Indiana never posts a raw Sonar dump. Responses move through a layered **Genesis stack** that sharpens style, injects intuition, and optionally dives into inferential depth.
 
 ### Genesis2 — Intuition Filter
