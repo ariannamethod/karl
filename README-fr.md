@@ -24,6 +24,16 @@ Le Noyau Linux Arianna Method est le battement de cœur d'Indiana, un noyau sur 
 
 Compilé depuis une distro minimaliste, il abandonne les fioritures pour un comportement prévisible et un terrain dégagé où planter les outils d'Indiana.
 
+Se charge avec un initramfs minimal (basé sur Alpine minirootfs), réduisant la complexité de démarrage à O(1) relativement au nombre de modules.
+**OverlayFS** pour les systèmes de fichiers superposés, modélisé comme une union (U = R ∪ W) pour des changements d'état efficaces.
+**ext4** comme stockage persistant par défaut ; la fonction de journalisation J(t) ≈ intégrale bornée, protégeant les données en cas de coupure.
+**Namespaces** (Nᵢ) pour l'isolation des processus/ressources, garantissant un multitenant sûr.
+**Hiérarchies de cgroups** pour les arbres de ressources (T), offrant un contrôle précis du CPU et de la RAM.
+**Python 3.10+** inclus, l'isolation via `venv` équivaut à des « sous-espaces vectoriels ».
+**Node.js 18+** pour les E/S asynchrones, modélisé comme f : E → E.
+**Trousse d'outils minimale :** bash, curl, nano — chacun est un sommet du graphe de dépendances, sans surcharge.
+
+
 Quand `main.py` s'allume, il envoie une poignée de main au noyau, demandant poliment avant de se jeter dans la mémoire comme un archéologue à chapeau.
 
 L'espace utilisateur est cartographié via `AM-Linux-Core/`, un répertoire qui sert à la fois de racine et de journal vagabond, afin que chaque script sache où est sa maison.

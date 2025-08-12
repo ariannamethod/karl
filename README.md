@@ -24,6 +24,16 @@ The Arianna Method Linux Core is the heartbeat of Indiana, a custom-tailored ker
 
 Compiled from a minimalist distro, it trades shiny extras for predictable behavior and a clean field to plant Indiana's tools.
 
+Loads with a minimal initramfs (based on Alpine minirootfs), reducing boot complexity to O(1) relative to module count.
+**OverlayFS** for layered filesystems, modeled as a union (U = R ∪ W) for efficient state changes.
+**ext4** as the default persistent store; journaling function J(t) ≈ bounded integral, protecting data under power loss.
+**Namespaces** (Nᵢ) for process/resource isolation, safe multitenancy.
+**Cgroup hierarchies** for resource trees (T), precise CPU/RAM control.
+**Python 3.10+** included, `venv` isolation equals “vector subspaces.”
+**Node.js 18+** for async I/O, modeled as f: E → E.
+**Minimal toolkit:** bash, curl, nano—each is a vertex in the dependency graph, no bloat.
+
+
 When `main.py` fires up, it sends a handshake to the kernel, asking politely before stomping into memory like a fedora-wearing archaeologist.
 
 Userland is mapped through `AM-Linux-Core/`, a directory that acts as both root and wandering journal, so every script knows where home is.
