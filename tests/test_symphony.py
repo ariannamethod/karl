@@ -37,3 +37,42 @@ def test_collect_new_data_without_threshold(tmp_path):
     assert ready is False
     assert data == "hi"
     assert not dataset.exists()
+
+
+def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
+    from GENESIS_orchestrator import symphony
+
+    # Patch configuration values
+    monkeypatch.setattr(symphony, "DEFAULT_THRESHOLD", 123)
+    monkeypatch.setattr(symphony, "CONFIG_DATASET_DIR", tmp_path / "data")
+    monkeypatch.setattr(symphony, "model_hyperparams", {})
+
+    captured = {}
+
+    def fake_collect(base_paths, dataset_path, threshold, resume):
+        captured["threshold"] = threshold
+        return True, "abc"
+
+    def fake_prepare(text, dest):
+        captured["dataset_dir"] = dest
+
+    def fake_train(data_dir, out_dir):
+        captured["train_dataset"] = data_dir
+
+    monkeypatch.setattr(symphony, "collect_new_data", fake_collect)
+    monkeypatch.setattr(symphony, "_prepare_char_dataset", fake_prepare)
+    monkeypatch.setattr(symphony, "train_model", fake_train)
+
+    monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[1]))
+
+    monkeypatch.setattr(sys, "argv", ["symphony.py"])
+    symphony.main()
+    assert captured["threshold"] == 123
+    assert captured["dataset_dir"] == tmp_path / "data"
+    assert captured["train_dataset"] == tmp_path / "data"
+
+    monkeypatch.setattr(sys, "argv", ["symphony.py", "--threshold", "5", "--dataset_dir", str(tmp_path / "other")])
+    symphony.main()
+    assert captured["threshold"] == 5
+    assert captured["dataset_dir"] == tmp_path / "other"
+    assert captured["train_dataset"] == tmp_path / "other"

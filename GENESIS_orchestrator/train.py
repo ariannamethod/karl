@@ -27,6 +27,7 @@ import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
+from config import dataset_dir as CONFIG_DATASET_DIR, model_hyperparams
 from model import GPTConfig, GPT
 
 # -----------------------------------------------------------------------------
@@ -44,7 +45,7 @@ wandb_log = False # disabled by default
 wandb_project = 'owt'
 wandb_run_name = 'gpt2' # 'run' + str(time.time())
 # data
-dataset = 'openwebtext'
+dataset = str(CONFIG_DATASET_DIR)
 gradient_accumulation_steps = 5 * 8 # used to simulate larger batch sizes
 batch_size = 12 # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 1024
@@ -73,6 +74,16 @@ device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1' etc., or try 'mps'
 dtype = 'bfloat16' if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else 'float16' # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
 compile = True # use PyTorch 2.0 to compile the model to be faster
 # -----------------------------------------------------------------------------
+# apply defaults from configuration file
+batch_size = model_hyperparams.get('batch_size', batch_size)
+block_size = model_hyperparams.get('block_size', block_size)
+n_layer = model_hyperparams.get('n_layer', n_layer)
+n_head = model_hyperparams.get('n_head', n_head)
+n_embd = model_hyperparams.get('n_embd', n_embd)
+dropout = model_hyperparams.get('dropout', dropout)
+max_iters = model_hyperparams.get('max_iters', max_iters)
+lr_decay_iters = model_hyperparams.get('lr_decay_iters', lr_decay_iters)
+
 config_keys = [k for k,v in globals().items() if not k.startswith('_') and isinstance(v, (int, float, bool, str))]
 exec(open('configurator.py').read()) # overrides from command line or config file
 config = {k: globals()[k] for k in config_keys} # will be useful for logging
@@ -112,7 +123,7 @@ ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torc
 ctx = nullcontext() if device_type == 'cpu' else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
 
 # poor man's data loader
-data_dir = os.path.join('data', dataset)
+data_dir = dataset
 def get_batch(split):
     # We recreate np.memmap every batch to avoid a memory leak, as per
     # https://stackoverflow.com/questions/45132940/numpy-memmap-memory-usage-want-to-iterate-once/61472122#61472122
