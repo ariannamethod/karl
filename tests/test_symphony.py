@@ -73,6 +73,18 @@ def test_collect_new_data_without_threshold(tmp_path):
     assert not dataset.exists()
 
 
+def test_collect_new_data_with_small_chunk(tmp_path):
+    file = tmp_path / "a.txt"
+    file.write_text("hello\nworld")
+    dataset = tmp_path / "out.txt"
+    ready, data = collect_new_data(
+        [tmp_path], dataset, threshold=1, chunk_size=1
+    )
+    assert ready is True
+    assert data == "hello\nworld"
+    assert dataset.read_text() == "hello\nworld"
+
+
 def test_run_orchestrator_returns_metrics(monkeypatch, tmp_path):
     from GENESIS_orchestrator import symphony
 
