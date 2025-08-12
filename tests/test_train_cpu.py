@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from GENESIS_orchestrator import symphony  # noqa: E402
+from GENESIS_orchestrator.genesis_trainer import train_model  # noqa: E402
 
 
 def test_train_model_uses_cpu(monkeypatch, tmp_path):
@@ -12,10 +12,12 @@ def test_train_model_uses_cpu(monkeypatch, tmp_path):
     def fake_run(cmd, cwd=None, check=False):
         captured['cmd'] = cmd
 
-    monkeypatch.setattr(symphony.subprocess, 'run', fake_run)
+    from GENESIS_orchestrator import genesis_trainer
+
+    monkeypatch.setattr(genesis_trainer.subprocess, 'run', fake_run)
     dataset = tmp_path / 'data'
     dataset.mkdir()
-    symphony.train_model(dataset, tmp_path / 'out')
+    train_model(dataset, tmp_path / 'out')
     cmd = captured['cmd']
     assert '--device=cpu' in cmd
     assert '--block_size=32' in cmd

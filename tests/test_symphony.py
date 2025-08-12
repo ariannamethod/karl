@@ -6,8 +6,9 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from GENESIS_orchestrator import state  # noqa: E402
-from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy  # noqa: E402
+from GENESIS_orchestrator import orchestrator as state  # noqa: E402
+from GENESIS_orchestrator.symphony import collect_new_data  # noqa: E402
+from GENESIS_orchestrator.entropy import markov_entropy  # noqa: E402
 
 
 def test_binary_files_are_skipped(tmp_path):
@@ -80,7 +81,7 @@ def test_run_orchestrator_returns_metrics(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(symphony, "markov_entropy", lambda text: 1.0)
     monkeypatch.setattr(symphony, "model_perplexity", lambda text: 2.0)
-    monkeypatch.setattr(symphony, "_prepare_char_dataset", lambda *a, **k: None)
+    monkeypatch.setattr(symphony, "prepare_char_dataset", lambda *a, **k: None)
     monkeypatch.setattr(symphony, "train_model", lambda *a, **k: None)
 
     metrics = symphony.run_orchestrator(dataset_dir=tmp_path)
@@ -108,7 +109,7 @@ def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
         captured["train_dataset"] = data_dir
 
     monkeypatch.setattr(symphony, "collect_new_data", fake_collect)
-    monkeypatch.setattr(symphony, "_prepare_char_dataset", fake_prepare)
+    monkeypatch.setattr(symphony, "prepare_char_dataset", fake_prepare)
     monkeypatch.setattr(symphony, "train_model", fake_train)
 
     monkeypatch.setenv("PYTHONPATH", str(Path(__file__).resolve().parents[1]))
@@ -127,7 +128,7 @@ def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
 
 
 def test_prepare_char_dataset_empty_text_raises(tmp_path):
-    from GENESIS_orchestrator.symphony import _prepare_char_dataset
+    from GENESIS_orchestrator.genesis_trainer import prepare_char_dataset
 
     with pytest.raises(ValueError, match="non-empty"):
-        _prepare_char_dataset("", tmp_path)
+        prepare_char_dataset("", tmp_path)
