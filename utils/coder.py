@@ -10,6 +10,8 @@ from typing import Optional
 from openai import OpenAI
 
 from utils.aml_terminal import terminal
+from utils.genesis2 import genesis2_sonar_filter
+from utils.security import is_blocked, log_blocked
 
 
 api_key = os.getenv("OPENAI_API_KEY")
@@ -121,6 +123,13 @@ async def kernel_exec(command: str) -> str:
     The command is executed inside the Arianna core environment and all
     activity is logged under ``/arianna_core/log``.
     """
+    if is_blocked(command):
+        log_blocked(command)
+        base = "Ты и правда думал, что это сработает? Нет, дружище! Терминал закрыт."
+        twist = await genesis2_sonar_filter(command, base, "ru")
+        message = f"{base} {twist}".strip()
+        await terminal.stop()
+        return message
     return await terminal.run(f"/run {command}")
 
 
