@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from collections import deque
 from dataclasses import dataclass
@@ -23,6 +24,15 @@ from letsgo import CORE_COMMANDS  # type: ignore  # noqa: E402
 
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key) if api_key else None
+
+LOG_FILE = Path(__file__).resolve().parent.parent / "artefacts" / "coder.log"
+logger = logging.getLogger("coder")
+if not logger.handlers:
+    handler = logging.FileHandler(LOG_FILE)
+    formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 # Root directory of the repository for path validation
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -50,38 +60,52 @@ class DraftResponse:
 class IndianaCoder:
     """Stateful helper that analyzes and generates code."""
 
-    def __init__(self, max_history: int = 50) -> None:
+    def __init__(
+        self, max_history: int = 50, timeout: float = 30.0, max_retries: int = 3
+    ) -> None:
         self.history: deque[str] = deque(maxlen=max_history)
+        self.timeout = timeout
+        self.max_retries = max_retries
 
     async def _ask(self, prompt: str) -> str:
         if client is None:
             return "OpenAI API key not configured."
 
         conversation = "\n".join([*self.history, prompt])
-        try:  # pragma: no cover - network
-            response = await asyncio.to_thread(
-                client.responses.create,
-                model="gpt-4.1",
-                tools=[{"type": "code_interpreter", "container": {"type": "auto"}}],
-                instructions=INSTRUCTIONS,
-                input=conversation,
-            )
-            text = getattr(response, "output_text", "")
-            if not text:
-                parts: list[str] = []
-                for msg in getattr(response, "output", []) or []:
-                    if hasattr(msg, "content"):
-                        for piece in msg.content:
-                            piece_text = getattr(piece, "text", None)
-                            if piece_text:
-                                parts.append(piece_text)
-                    elif isinstance(msg, str):
-                        parts.append(msg)
-                    else:
-                        parts.append(str(msg))
-                text = "".join(parts)
-        except Exception as exc:  # pragma: no cover - network
-            text = f"Code interpreter error: {exc}"
+        text = ""
+        for attempt in range(1, self.max_retries + 1):
+            try:  # pragma: no cover - network
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        client.responses.create,
+                        model="gpt-4.1",
+                        tools=[{"type": "code_interpreter", "container": {"type": "auto"}}],
+                        instructions=INSTRUCTIONS,
+                        input=conversation,
+                    ),
+                    timeout=self.timeout,
+                )
+                text = getattr(response, "output_text", "")
+                if not text:
+                    parts: list[str] = []
+                    for msg in getattr(response, "output", []) or []:
+                        if hasattr(msg, "content"):
+                            for piece in msg.content:
+                                piece_text = getattr(piece, "text", None)
+                                if piece_text:
+                                    parts.append(piece_text)
+                        elif isinstance(msg, str):
+                            parts.append(msg)
+                        else:
+                            parts.append(str(msg))
+                    text = "".join(parts)
+                break
+            except Exception as exc:  # pragma: no cover - network
+                logger.warning("Attempt %s failed: %s", attempt, exc)
+                if attempt == self.max_retries:
+                    text = f"Code interpreter error: {exc}"
+                    break
+                await asyncio.sleep(2 ** (attempt - 1))
 
         self.history.append(prompt)
         self.history.append(text)
