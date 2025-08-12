@@ -3,7 +3,11 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy  # noqa: E402
+from GENESIS_orchestrator.symphony import (
+    collect_new_data,
+    markov_entropy,
+    DEFAULT_MAX_FILE_SIZE,
+)  # noqa: E402
 
 
 def test_binary_files_are_skipped(tmp_path):
@@ -48,4 +52,29 @@ def test_collect_new_data_without_threshold(tmp_path):
     ready, data = collect_new_data([tmp_path], dataset, threshold=10)
     assert ready is False
     assert data == "hi"
+    assert not dataset.exists()
+
+
+def test_hidden_directories_are_skipped(tmp_path):
+    hidden_dir = tmp_path / ".hidden"
+    hidden_dir.mkdir()
+    (hidden_dir / "secret.txt").write_text("secret")
+    visible = tmp_path / "visible.txt"
+    visible.write_text("visible")
+    dataset = tmp_path / "out.txt"
+    ready, data = collect_new_data([tmp_path], dataset, threshold=100)
+    assert ready is False
+    assert data == "visible"
+    assert not dataset.exists()
+
+
+def test_large_files_are_skipped(tmp_path):
+    large = tmp_path / "big.txt"
+    large.write_text("a" * (DEFAULT_MAX_FILE_SIZE + 1))
+    small = tmp_path / "small.txt"
+    small.write_text("ok")
+    dataset = tmp_path / "out.txt"
+    ready, data = collect_new_data([tmp_path], dataset, threshold=100)
+    assert ready is False
+    assert data == "ok"
     assert not dataset.exists()

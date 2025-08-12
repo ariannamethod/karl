@@ -11,6 +11,7 @@ from . import state
 
 DATASET_FILE = Path(__file__).with_name('gen_data.txt')
 DEFAULT_THRESHOLD = 256 * 1024  # 256KB
+DEFAULT_MAX_FILE_SIZE = 1024 * 1024  # 1MB
 
 def _looks_binary(path: Path) -> bool:
     try:
@@ -20,12 +21,27 @@ def _looks_binary(path: Path) -> bool:
     except Exception:
         return True
 
-def _iter_text_files(paths: Iterable[Path], exclude: Iterable[Path]) -> Iterable[Path]:
+def _iter_text_files(
+    paths: Iterable[Path],
+    exclude: Iterable[Path],
+    *,
+    exclude_dirs: Iterable[str] = (),
+    max_file_size: int = DEFAULT_MAX_FILE_SIZE,
+) -> Iterable[Path]:
     exclude = {p.resolve() for p in exclude}
+    excluded_dirs = set(exclude_dirs)
     for base in paths:
         for path in base.rglob('*'):
-            if path.is_file() and path.resolve() not in exclude and not _looks_binary(path):
-                yield path
+            if any(part.startswith('.') or part in excluded_dirs for part in path.parts):
+                continue
+            if path.is_file() and path.resolve() not in exclude:
+                try:
+                    if path.stat().st_size > max_file_size:
+                        continue
+                except Exception:
+                    continue
+                if not _looks_binary(path):
+                    yield path
 
 def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FILE,
                      threshold: int = DEFAULT_THRESHOLD, resume: bool = False) -> Tuple[bool, str]:
@@ -37,7 +53,11 @@ def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FI
     file_state = state.load_state() if resume else {}
     collected = []
     total = 0
-    for path in _iter_text_files(base_paths, exclude=[dataset_path, state.STATE_FILE]):
+    for path in _iter_text_files(
+        base_paths,
+        exclude=[dataset_path, state.STATE_FILE],
+        exclude_dirs=['.git', '.venv'],
+    ):
         try:
             h = state.file_hash(path)
             size = path.stat().st_size
