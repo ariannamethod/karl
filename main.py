@@ -37,6 +37,7 @@ from utils.repo_monitor import RepoWatcher
 from utils.voice import text_to_voice, voice_to_text
 from utils.context_neural_processor import parse_and_store_file
 from utils.rate_limiter import RateLimitMiddleware
+from GENESIS_orchestrator import update_and_train, report_entropy
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -114,6 +115,9 @@ complexity_logger = ThoughtComplexityLogger()
 
 # Force Genesis-3 deep dive on every response when enabled
 FORCE_DEEP_DIVE = False
+
+# Latest entropy reported by the GENESIS orchestrator
+LAST_MARKOV_ENTROPY = report_entropy()
 
 
 def get_user_language(user_id: str, text: str, language_code: str | None = None) -> str:
@@ -201,6 +205,11 @@ def reload_artifacts() -> None:
     """Clear artefact cache when repository changes."""
     artifact_cache.clear()
     logger.info("Artifact cache cleared after repository change")
+
+    # Update GENESIS metrics whenever repository content changes
+    update_and_train()
+    global LAST_MARKOV_ENTROPY
+    LAST_MARKOV_ENTROPY = report_entropy()
 
 
 repo_watcher = RepoWatcher(paths=[Path('.')], on_change=reload_artifacts)
@@ -821,8 +830,10 @@ async def handle_message(m: types.Message):
         complexity_logger.log_turn(text, complexity, entropy)
 
         # Delay responses to simulate thoughtfulness
-        # 10-40s for private chats, 2-6m for groups
-        await asyncio.sleep(random.uniform(10, 40) if private else random.uniform(120, 360))
+        # The delay scales with the current Markov entropy of the repository
+        base_delay = random.uniform(10, 40) if private else random.uniform(120, 360)
+        entropy_factor = 1 + (LAST_MARKOV_ENTROPY / 100)
+        await asyncio.sleep(base_delay * entropy_factor)
 
         # 1) Load context from memory and artifacts
         mem_ctx = await memory.retrieve(user_id, text)
@@ -892,6 +903,11 @@ async def on_startup(app):
     await setup_bot_commands()
     await create_background_task(cleanup_old_voice_files())
     await create_background_task(cleanup_user_langs())
+
+    # Perform initial GENESIS training and record entropy
+    update_and_train()
+    global LAST_MARKOV_ENTROPY
+    LAST_MARKOV_ENTROPY = report_entropy()
 
     # Set webhook
     webhook_info = await bot.get_webhook_info()
@@ -966,6 +982,11 @@ if __name__ == "__main__":
             await setup_bot_commands()
             await create_background_task(cleanup_old_voice_files())
             await create_background_task(cleanup_user_langs())
+
+            # Perform initial GENESIS training and record entropy
+            update_and_train()
+            global LAST_MARKOV_ENTROPY
+            LAST_MARKOV_ENTROPY = report_entropy()
             # Remove webhook and drop pending updates to avoid polling conflicts
             await bot.delete_webhook(drop_pending_updates=True)
             # Flush any previous getUpdates session
