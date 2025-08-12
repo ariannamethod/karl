@@ -229,7 +229,7 @@ def main() -> None:
         out = {"model_perplexity": metrics["model_perplexity"]}
     else:
         out = metrics
-    print(json.dumps(out))
+    LOGGER.info(json.dumps(out))
 
 
 if __name__ == "__main__":

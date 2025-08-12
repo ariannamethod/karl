@@ -15,6 +15,7 @@ import random
 import re
 import json
 from datetime import datetime
+import logging
 
 try:  # Optional dependency
     from bs4 import BeautifulSoup
@@ -77,6 +78,8 @@ except ImportError:
 
     class RarError(Exception):
         pass
+
+logger = logging.getLogger(__name__)
 
 # Глобальные настройки
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -877,7 +880,7 @@ if __name__ == "__main__":
     async def test():
         if args.path:
             text = await parse_and_store_file(args.path)
-            print(text)
+            logger.info(text)
         if args.snapshot:
             await create_repo_snapshot()
 

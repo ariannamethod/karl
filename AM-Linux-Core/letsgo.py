@@ -25,6 +25,7 @@ from typing import (
 from dataclasses import dataclass, asdict
 import re
 import shutil
+import logging
 
 _NO_COLOR_FLAG = "--no-color"
 USE_COLOR = (
@@ -38,6 +39,8 @@ if _NO_COLOR_FLAG in sys.argv:
 os.environ.setdefault("TERM", "xterm")
 
 
+# logger setup
+logger = logging.getLogger(__name__)
 APP_NAME = "LetsGo"
 try:
     APP_VERSION = importlib_metadata.version("letsgo")
@@ -128,7 +131,7 @@ def _ensure_log_dir() -> None:
     """Ensure that the log directory exists and is writable."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     if not os.access(LOG_DIR, os.W_OK):
-        print(f"No write permission for {LOG_DIR}", file=sys.stderr)
+        logger.error(f"No write permission for {LOG_DIR}")
         raise SystemExit(1)
     max_files = getattr(SETTINGS, "max_log_files", 0)
     if max_files > 0:
@@ -378,19 +381,19 @@ async def handle_time(_: str) -> Tuple[str, str | None]:
 
 async def handle_run(user: str) -> Tuple[str, str | None]:
     command = user.partition(" ")[2]
-    print("выполняется...")
+    logger.info("выполняется...")
     output, rc, duration = await run_command(command)
     if output:
         if rc != 0:
-            print(color(output, SETTINGS.red))
+            logger.error(color(output, SETTINGS.red))
         else:
-            print(output)
+            logger.info(output)
     status = f"код возврата: {rc}, длительность: {duration:.2f}s"
     if rc != 0:
-        print(color(status, SETTINGS.red))
+        logger.error(color(status, SETTINGS.red))
         log_error(f"{command} | {status} | {output}")
     else:
-        print(color(status, SETTINGS.green))
+        logger.info(color(status, SETTINGS.green))
     reply = "\n".join(filter(None, [output, status]))
     return reply, None
 
@@ -425,7 +428,7 @@ async def handle_py(user: str) -> Tuple[str, str | None]:
 
 
 async def handle_clear(_: str) -> Tuple[str, str | None]:
-    print(clear_screen(), end="")
+    logger.info(clear_screen())
     reply = "Cleared."
     return reply, reply
 
@@ -571,9 +574,9 @@ async def main() -> None:
     log("session_start")
     version = f" v{APP_VERSION}" if APP_VERSION else ""
     header = f"{APP_NAME}{version}"
-    print(color(header, SETTINGS.green))
-    print(color("Commands:", SETTINGS.cyan), command_summary)
-    print("Type 'exit' to quit.")
+    logger.info(color(header, SETTINGS.green))
+    logger.info("%s %s", color("Commands:", SETTINGS.cyan), command_summary)
+    logger.info("Type 'exit' to quit.")
     while True:
         try:
             user = await async_input(color(SETTINGS.prompt, SETTINGS.cyan))
@@ -590,7 +593,7 @@ async def main() -> None:
             reply = f"Unknown command: {base}. Try /help for guidance."
             colored = color(reply, SETTINGS.red)
         if colored is not None:
-            print(colored)
+            logger.info(colored)
         log(f"letsgo:{reply}")
     log("session_end")
 

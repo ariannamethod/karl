@@ -41,7 +41,10 @@ from utils.rate_limiter import RateLimitMiddleware
 from GENESIS_orchestrator import update_and_train, report_entropy
 
 # Настройка логгера
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 load_dotenv()

@@ -3,12 +3,15 @@ import os
 import httpx
 import asyncio
 from typing import List, Dict, Optional
+import logging
 
 PPLX_API_URL = "https://api.perplexity.ai/chat/completions"
 PPLX_API_KEY = os.getenv("PPLX_API_KEY")  # Переменная окружения
 DEFAULT_MODEL = "sonar-pro"  # Можно "sonar-reasoning-pro" для академического поиска
 DEFAULT_MAX_TOKENS = 1024
 DEFAULT_TIMEOUT = 40
+
+logger = logging.getLogger(__name__)
 
 def _headers() -> dict:
     return {
@@ -88,10 +91,10 @@ if __name__ == "__main__":
     import sys
     q = " ".join(sys.argv[1:]) or "theory of resonance in ai"
     out = asyncio.run(perplexity_search(q))
-    print("-" * 40)
-    print("🧠 Perplexity Search Result:")
-    print(out["answer"])
-    print("-" * 40)
-    print("🔗 Links:")
+    logger.info("-" * 40)
+    logger.info("🧠 Perplexity Search Result:")
+    logger.info(out["answer"])
+    logger.info("-" * 40)
+    logger.info("🔗 Links:")
     for link in out["sources"]:
-        print("  •", link)
+        logger.info("  • %s", link)
