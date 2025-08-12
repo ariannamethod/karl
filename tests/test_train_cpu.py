@@ -14,6 +14,8 @@ def test_train_model_uses_cpu(monkeypatch, tmp_path):
 
     from GENESIS_orchestrator import genesis_trainer
 
+    # Force fallback to subprocess by simulating missing torch
+    monkeypatch.setattr(genesis_trainer, 'torch', None)
     monkeypatch.setattr(genesis_trainer.subprocess, 'run', fake_run)
     dataset = tmp_path / 'data'
     dataset.mkdir()
