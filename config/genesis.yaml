@@ -1,0 +1,12 @@
+compile: false
+eval_iters: 1
+log_interval: 1
+block_size: 64
+batch_size: 12
+n_layer: 2
+n_head: 2
+n_embd: 64
+max_iters: 10
+lr_decay_iters: 10
+dropout: 0.0
+out_dir: weights
