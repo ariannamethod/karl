@@ -1,14 +1,16 @@
 import argparse
 import json
+import logging
 import math
-import sys
 import subprocess
+import sys
 from collections import Counter
 from pathlib import Path
-from typing import Iterable, Tuple
+from typing import Iterable, Optional, Tuple
 
 from . import state
 
+LOGGER = logging.getLogger(__name__)
 DATASET_FILE = Path(__file__).with_name('gen_data.txt')
 DEFAULT_THRESHOLD = 256 * 1024  # 256KB
 
@@ -28,37 +30,54 @@ def _iter_text_files(paths: Iterable[Path], exclude: Iterable[Path]) -> Iterable
                 yield path
 
 def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FILE,
-                     threshold: int = DEFAULT_THRESHOLD, resume: bool = False) -> Tuple[bool, str]:
+                     threshold: int = DEFAULT_THRESHOLD, resume: bool = False,
+                     logger: Optional[logging.Logger] = None) -> Tuple[bool, str]:
     """Collect text from base_paths and write to dataset_path when threshold exceeded.
 
     When ``resume`` is True, previously processed files are skipped based on stored
     hashes and sizes.
     """
+    log = logger or LOGGER
     file_state = state.load_state() if resume else {}
-    collected = []
+    temp_path = dataset_path.with_suffix(dataset_path.suffix + '.tmp')
     total = 0
-    for path in _iter_text_files(base_paths, exclude=[dataset_path, state.STATE_FILE]):
-        try:
-            h = state.file_hash(path)
-            size = path.stat().st_size
-        except Exception:
-            continue
-        key = str(path.resolve())
-        entry = file_state.get(key)
-        if entry and entry.get('hash') == h and entry.get('size') == size:
-            continue
-        try:
-            text = path.read_text(encoding='utf-8')
-        except Exception:
-            text = path.read_text(encoding='utf-8', errors='ignore')
-        collected.append(text)
-        total += len(text.encode('utf-8'))
-        file_state[key] = {'hash': h, 'size': size}
+    parts = []
+    with temp_path.open('w', encoding='utf-8') as tmp:
+        first = True
+        for path in _iter_text_files(base_paths, exclude=[dataset_path, state.STATE_FILE, temp_path]):
+            try:
+                h = state.file_hash(path)
+                size = path.stat().st_size
+            except Exception:
+                log.exception("failed to hash %s", path)
+                continue
+            key = str(path.resolve())
+            entry = file_state.get(key)
+            if entry and entry.get('hash') == h and entry.get('size') == size:
+                continue
+            try:
+                text = path.read_text(encoding='utf-8')
+            except Exception:
+                log.exception("failed to read %s", path)
+                try:
+                    text = path.read_text(encoding='utf-8', errors='ignore')
+                except Exception:
+                    log.exception("failed to read %s even with errors ignored", path)
+                    continue
+            if not first:
+                tmp.write('\n')
+            tmp.write(text)
+            first = False
+            parts.append(text)
+            total += len(text.encode('utf-8'))
+            file_state[key] = {'hash': h, 'size': size}
     state.save_state(file_state)
+    data = ''.join(parts)
     if total >= threshold:
-        dataset_path.write_text('\n'.join(collected), encoding='utf-8')
-        return True, ''.join(collected)
-    return False, ''.join(collected)
+        temp_path.replace(dataset_path)
+        return True, data
+    temp_path.unlink(missing_ok=True)
+    return False, data
 
 def markov_entropy(text: str, n: int = 2) -> float:
     if not isinstance(text, str):
