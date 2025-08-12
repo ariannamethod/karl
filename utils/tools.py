@@ -3,6 +3,8 @@ import logging
 import re
 from pathlib import Path
 
+from GENESIS_orchestrator import status_emoji
+
 # Настройка логгера
 logger = logging.getLogger(__name__)
 
@@ -88,9 +90,9 @@ async def send_split_message(bot, chat_id, text, parse_mode=None, **kwargs):
     logger.info(f"Split into {len(parts)} parts")
 
     for i, part in enumerate(parts):
-        # Добавляем эмодзи-индикатор для первой части ответа
-        if i == 0 and not part.startswith("☝🏻"):
-            part = "☝🏻 " + part
+        # Добавляем эмодзи-индикатор и статус для первой части ответа
+        if i == 0:
+            part = f"☝🏻{status_emoji()} " + part.lstrip()
 
         # Добавляем индикатор продолжения/окончания сообщения
         if i < len(parts) - 1:
