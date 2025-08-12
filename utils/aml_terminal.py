@@ -13,6 +13,24 @@ class AriannaTerminal:
         self.proc: asyncio.subprocess.Process | None = None
         self._lock = asyncio.Lock()
 
+    def _apply_cgroup_limits(self, pid: int) -> None:
+        cpu_limit = os.getenv("LETSGO_CPU_LIMIT")
+        mem_limit = os.getenv("LETSGO_MEMORY_LIMIT")
+        if not cpu_limit and not mem_limit:
+            return
+        root = Path(os.getenv("LETSGO_CGROUP_ROOT", "/sys/fs/cgroup"))
+        cg_dir = root / f"arianna_terminal_{pid}"
+        try:
+            cg_dir.mkdir(parents=True, exist_ok=True)
+            if mem_limit:
+                (cg_dir / "memory.max").write_text(mem_limit)
+            if cpu_limit:
+                (cg_dir / "cpu.max").write_text(cpu_limit)
+            (cg_dir / "cgroup.procs").write_text(str(pid))
+        except OSError:
+            # If cgroups are unavailable or permissions are missing, ignore the error.
+            pass
+
     async def _ensure_started(self) -> None:
         if self.proc:
             return
@@ -26,6 +44,8 @@ class AriannaTerminal:
             stdout=asyncio.subprocess.PIPE,
             env=env,
         )
+        if self.proc.pid:
+            self._apply_cgroup_limits(self.proc.pid)
         await self._read_until_prompt()
 
     async def _read_until_prompt(self) -> None:

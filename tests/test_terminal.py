@@ -39,3 +39,23 @@ def test_kernel_exec_blocks_malicious_command(monkeypatch, tmp_path):
     assert "Терминал закрыт" in result
     assert log_file.exists()
     assert "rm -rf /" in log_file.read_text(encoding="utf-8")
+
+
+def test_cgroup_limits(monkeypatch, tmp_path):
+    monkeypatch.setenv("LETSGO_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("LETSGO_CGROUP_ROOT", str(tmp_path))
+    monkeypatch.setenv("LETSGO_CPU_LIMIT", "50000 100000")
+    monkeypatch.setenv("LETSGO_MEMORY_LIMIT", "104857600")
+
+    async def _run() -> int | None:
+        await terminal._ensure_started()
+        pid = terminal.proc.pid if terminal.proc else None
+        await terminal.stop()
+        return pid
+
+    pid = asyncio.run(_run())
+    assert pid is not None
+    cg_dir = tmp_path / f"arianna_terminal_{pid}"
+    assert (cg_dir / "cpu.max").read_text() == "50000 100000"
+    assert (cg_dir / "memory.max").read_text() == "104857600"
+    assert (cg_dir / "cgroup.procs").read_text() == str(pid)
