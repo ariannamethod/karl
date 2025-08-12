@@ -1,6 +1,8 @@
 import asyncio
 import sys
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 # Ensure project root is importable
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -45,3 +47,54 @@ def test_help_lists_core_commands():
     """Ensure /help returns entries from CORE_COMMANDS."""
     help_text = format_core_commands()
     assert any(cmd in help_text for cmd in CORE_COMMANDS)
+
+
+def test_ask_retries_and_succeeds(monkeypatch):
+    calls = {"n": 0}
+
+    def create(**_: object) -> object:  # pragma: no cover - behavior mocked
+        calls["n"] += 1
+        if calls["n"] == 1:
+            time.sleep(0.2)
+
+        class Resp:
+            output_text = "ok"
+        return Resp()
+
+    fake_client = SimpleNamespace(responses=SimpleNamespace(create=create))
+    monkeypatch.setattr("utils.coder.client", fake_client, raising=False)
+
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", no_sleep)
+
+    coder = IndianaCoder(timeout=0.01)
+    result = asyncio.run(coder._ask("hi"))
+    assert result == "ok"
+    assert calls["n"] == 2
+
+
+def test_ask_logs_failures(monkeypatch):
+    from utils import coder as coder_module
+
+    log_file = coder_module.LOG_FILE
+    log_file.write_text("")
+
+    def create(**_: object) -> None:  # pragma: no cover - behavior mocked
+        time.sleep(0.2)
+
+    fake_client = SimpleNamespace(responses=SimpleNamespace(create=create))
+    monkeypatch.setattr("utils.coder.client", fake_client, raising=False)
+
+    async def no_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(asyncio, "sleep", no_sleep)
+
+    coder = IndianaCoder(timeout=0.01)
+    result = asyncio.run(coder._ask("hi"))
+    for handler in coder_module.logger.handlers:
+        handler.flush()
+    assert "Code interpreter error" in result
+    assert "Attempt" in log_file.read_text()
