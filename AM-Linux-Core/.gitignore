@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+build/kernel/linux-*
+build/alpine-minirootfs-*
+build/rootfs/
+build/arianna.initramfs.gz
+build/arianna-core.img
+log/*.log
+build/kernel/
+build/acroot/
+build/arianna_core_root-*.tar.gz
+build/apk-tools/
+for-codex-alpine-apk-tools/out/
