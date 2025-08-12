@@ -38,6 +38,7 @@ from utils.repo_monitor import RepoWatcher
 from utils.voice import text_to_voice, voice_to_text
 from utils.context_neural_processor import parse_and_store_file
 from utils.rate_limiter import RateLimitMiddleware
+from utils.aml_terminal import terminal
 from GENESIS_orchestrator import update_and_train, report_entropy
 
 # Настройка логгера
@@ -125,6 +126,9 @@ FORCE_DEEP_DIVE = False
 
 # Latest entropy reported by the GENESIS orchestrator
 LAST_MARKOV_ENTROPY = report_entropy()
+
+# Emergency mode routes all messages directly to the AM-Linux terminal.
+EMERGENCY_MODE = False
 
 
 def get_user_language(user_id: str, text: str, language_code: str | None = None) -> str:
@@ -636,6 +640,15 @@ async def afterthought(chat_id: int, user_id: str, original: str, private: bool)
     except Exception as e:
         logger.error(f"Error in afterthought: {e}")
 
+# --- Emergency Mode ---
+@dp.message(F.text == "/emergency")
+async def toggle_emergency_mode(m: types.Message):
+    """Toggle emergency mode for routing all messages to the terminal."""
+    global EMERGENCY_MODE
+    EMERGENCY_MODE = not EMERGENCY_MODE
+    status = "activated" if EMERGENCY_MODE else "deactivated"
+    await m.answer(f"☝🏻 emergency mode {status}")
+
 # --- Deep Dive Toggle Commands ---
 @dp.message(F.text == "/deep")
 async def enable_deep_mode(m: types.Message):
@@ -823,6 +836,11 @@ async def handle_message(m: types.Message):
         user_id = str(m.from_user.id)
         chat_id = m.chat.id
         private = m.chat.type == "private"
+
+        if EMERGENCY_MODE:
+            output = await terminal.run(text)
+            await m.answer(output)
+            return
 
         lang = get_user_language(user_id, text, m.from_user.language_code)
         if is_rate_limited(user_id):
