@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Arianna Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg-color: #ffffff;
+    --fg-color: #000000;
+    --accent-color: #666;
+    --tab-active-bg: #ddd;
+  }
+  [data-theme="dark"] {
+    --bg-color: #1e1e1e;
+    --fg-color: #d4d4d4;
+    --accent-color: #999;
+    --tab-active-bg: #333;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--bg-color);
+    color: var(--fg-color);
+    font-family: 'Roboto', sans-serif;
+  }
+  .frame {
+    border: 1px solid var(--accent-color);
+    margin: 8px;
+    flex: 1;
+  }
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px;
+  }
+  #status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: inherit;
+  }
+  #status::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    background: var(--accent-color);
+    vertical-align: middle;
+  }
+  #status.open::before { background: #0a0; }
+  #status.close::before { background: #a00; }
+  #status.error::before { background: #e69500; }
+  #status.loading::before {
+    border: 2px solid var(--accent-color);
+    border-top-color: var(--fg-color);
+    background: transparent;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  #tab-bar { display: flex; gap: 4px; margin: 0 8px; flex-wrap: nowrap; }
+  .tab { position: relative; padding: 4px 16px 4px 8px; cursor: pointer; }
+  .tab.active { background: var(--tab-active-bg); }
+  .close-tab { position: absolute; right: 4px; top: 2px; cursor: pointer; }
+  #terminal-container { flex: 1; display: flex; }
+  .hidden { display: none; }
+  @media (max-width: 600px) {
+    #controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    #tab-bar {
+      flex-wrap: wrap;
+    }
+    .frame {
+      margin: 4px;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="controls">
+  <span id="status" class="close">close</span>
+  <button id="new-tab"><span class="material-icons">add</span></button>
+  <button id="theme-toggle"><span class="material-icons" id="theme-icon">dark_mode</span></button>
+</div>
+<div id="tab-bar"></div>
+<dialog id="token-dialog">
+  <label for="token-input">Token:</label>
+  <input id="token-input" type="text" />
+  <button id="token-save">Save</button>
+</dialog>
+<div id="terminal-container"></div>
+<canvas id="three-canvas" class="frame"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.164.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+}
+const statusEl = document.getElementById('status');
+const tokenDialog = document.getElementById('token-dialog');
+const tokenInput = document.getElementById('token-input');
+const tabBar = document.getElementById('tab-bar');
+const container = document.getElementById('terminal-container');
+const themeToggle = document.getElementById('theme-toggle');
+const themeIcon = document.getElementById('theme-icon');
+const sessions = {};
+let activeSid = null;
+let tabCount = 0;
+
+function applyTheme(theme) {
+  document.body.dataset.theme = theme;
+  const isDark = theme === 'dark';
+  themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
+  for (const sid in sessions) {
+    sessions[sid].term.setOption('theme', isDark ? { background: '#1e1e1e', foreground: '#d4d4d4' } : { background: '#ffffff', foreground: '#000000' });
+  }
+  localStorage.setItem('amlkTheme', theme);
+}
+
+themeToggle.addEventListener('click', () => {
+  const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+});
+
+const storedTheme = localStorage.getItem('amlkTheme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+applyTheme(storedTheme);
+
+const threeCanvas = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas });
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  threeCanvas.clientWidth / threeCanvas.clientHeight,
+  0.1,
+  1000
+);
+camera.position.set(0, 0, 5);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+function resizeRenderer() {
+  renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight);
+  camera.aspect = threeCanvas.clientWidth / threeCanvas.clientHeight;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resizeRenderer);
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+resizeRenderer();
+animate();
+
+function handlePlot(dataStr) {
+  let payload;
+  try {
+    payload = JSON.parse(dataStr);
+  } catch (e) {
+    console.error('Invalid plot data', e);
+    return;
+  }
+  if (!payload.points) return;
+  const geometry = new THREE.BufferGeometry();
+  const vertices = new Float32Array(payload.points.flat());
+  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  const material = new THREE.LineBasicMaterial({ color: 0x0000ff });
+  const line = new THREE.Line(geometry, material);
+  scene.add(line);
+}
+
+function handleModel(modelStr) {
+  while (scene.children.length) {
+    scene.remove(scene.children[0]);
+  }
+  let mesh;
+  const name = modelStr.trim().toLowerCase();
+  if (name === 'cube') {
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshNormalMaterial());
+  } else if (name === 'sphere') {
+    mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), new THREE.MeshNormalMaterial());
+  }
+  if (mesh) scene.add(mesh);
+}
+function setStatus(state) {
+  statusEl.textContent = state;
+  statusEl.className = state;
+}
+  function connect(sid, term) {
+    const token = localStorage.getItem('amlkToken');
+    if (!token) {
+      tokenDialog.showModal();
+      return null;
+    }
+    setStatus('loading');
+    term.write('[connecting]\r\n');
+    const ws = new WebSocket(`ws://${location.host}/ws?token=${token}&sid=${sid}`);
+    ws.onopen = () => {
+      setStatus('open');
+      term.write('>> ');
+    };
+    ws.onmessage = ev => {
+      const lines = ev.data.split('\n');
+      let out = '';
+      for (const line of lines) {
+        if (line.startsWith('__PLOT__')) {
+          handlePlot(line.slice(8));
+        } else if (line.startsWith('__MODEL__')) {
+          handleModel(line.slice(9));
+        } else if (line) {
+          out += '\r\n' + line;
+        }
+      }
+      term.write(out + '\r\n>> ');
+    };
+    ws.onclose = () => {
+      setStatus('close');
+      term.write('\r\n[connection closed]\r\n');
+    };
+    ws.onerror = () => {
+      setStatus('error');
+      term.write('\r\n[connection error]\r\n');
+    };
+    return ws;
+  }
+function setActive(sid) {
+  if (activeSid && sessions[activeSid]) {
+    sessions[activeSid].tab.classList.remove('active');
+    sessions[activeSid].el.classList.add('hidden');
+  }
+  activeSid = sid;
+  localStorage.setItem('amlkActiveSid', sid);
+  const session = sessions[sid];
+  session.tab.classList.add('active');
+  session.el.classList.remove('hidden');
+}
+function removeSession(sid) {
+  const session = sessions[sid];
+  if (!session) return;
+  if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+    session.ws.send('__close__');
+    session.ws.close();
+  }
+  session.tab.remove();
+  session.el.remove();
+  delete sessions[sid];
+  if (activeSid === sid) {
+    const next = Object.keys(sessions)[0];
+    if (next) {
+      setActive(next);
+    } else {
+      activeSid = null;
+      localStorage.removeItem('amlkActiveSid');
+    }
+  }
+}
+function createSession(sid) {
+  sid = sid || (window.crypto ? crypto.randomUUID() : String(Date.now()));
+  const el = document.createElement('div');
+  el.className = 'frame hidden';
+  container.appendChild(el);
+    const isDark = document.body.dataset.theme === 'dark';
+    const term = new Terminal({
+      cursorBlink: true,
+      theme: isDark ? {
+        background: '#1e1e1e',
+        foreground: '#d4d4d4'
+      } : {
+        background: '#ffffff',
+        foreground: '#000000'
+      }
+    });
+  term.open(el);
+  const ws = connect(sid, term);
+  sessions[sid] = { term, ws, el, buffer: '' };
+  const tab = document.createElement('div');
+  tab.className = 'tab';
+  tab.textContent = `#${++tabCount}`;
+  const closeBtn = document.createElement('span');
+  closeBtn.textContent = '×';
+  closeBtn.className = 'close-tab';
+  closeBtn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    removeSession(sid);
+  });
+  tab.appendChild(closeBtn);
+  tab.addEventListener('click', () => setActive(sid));
+  tabBar.appendChild(tab);
+  sessions[sid].tab = tab;
+  term.onData(data => {
+    const session = sessions[sid];
+    if (!session) return;
+    if (data === '\r') {
+      if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+        session.ws.send(session.buffer);
+      }
+      session.buffer = '';
+    } else if (data === '\u007f') {
+      if (session.buffer.length > 0) {
+        session.buffer = session.buffer.slice(0, -1);
+        term.write('\b \b');
+      }
+    } else {
+      session.buffer += data;
+      term.write(data);
+    }
+  });
+  return sid;
+}
+document.getElementById('new-tab').addEventListener('click', () => {
+  setActive(createSession());
+});
+document.getElementById('token-save').addEventListener('click', () => {
+  localStorage.setItem('amlkToken', tokenInput.value);
+  tokenDialog.close();
+  if (!activeSid) {
+    setActive(createSession());
+  }
+});
+if (localStorage.getItem('amlkToken')) {
+  const last = localStorage.getItem('amlkActiveSid');
+  setActive(createSession(last));
+} else {
+  tokenDialog.showModal();
+}
+
+document.addEventListener('dragover', ev => ev.preventDefault());
+document.addEventListener('drop', async ev => {
+  ev.preventDefault();
+  const file = ev.dataTransfer.files[0];
+  if (!file || !(window.Telegram && window.Telegram.WebApp)) return;
+  try {
+    const buffer = await file.arrayBuffer();
+    const saved = await window.Telegram.WebApp.saveFile({
+      data: buffer,
+      file_name: file.name,
+      mime_type: file.type,
+    });
+    const opened = await window.Telegram.WebApp.openFile({ path: saved.path });
+    const form = new FormData();
+    form.append('file', new File([opened], file.name, { type: file.type }));
+    await fetch('/upload', { method: 'POST', body: form });
+  } catch (err) {
+    console.error('upload failed', err);
+  }
+});
+</script>
+</body>
+</html>
