@@ -9,7 +9,11 @@ from .config import settings
 
 vector_store = create_vector_store(max_size=1000)
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
+
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    logger.addHandler(logging.NullHandler())
 
 async def _fetch_last_day():
     """Return the date string of the last daily log if present."""
@@ -69,12 +73,16 @@ async def ensure_daily_entry(reflection_fn=default_reflection):
     return None
 
 async def init_vector_memory():
-    """Check and report the date of the last stored daily entry."""
+    """Check and report the date of the last stored daily entry.
+
+    Logs a message at the INFO level reporting the date of the most recent
+    daily log in the vector store or indicating that none was found.
+    """
     last = await _fetch_last_day()
     if last:
-        print(f"Last daily log stored on {last}")
+        logger.info("Last daily log stored on %s", last)
     else:
-        print("No daily log found in vector memory")
+        logger.info("No daily log found in vector memory")
 
 async def start_daily_task():
     """Background task that ensures a daily entry every 24 hours."""
