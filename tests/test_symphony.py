@@ -51,6 +51,21 @@ def test_collect_new_data_without_threshold(tmp_path):
     assert not dataset.exists()
 
 
+def test_run_orchestrator_returns_metrics(monkeypatch, tmp_path):
+    from GENESIS_orchestrator import symphony
+
+    monkeypatch.setattr(
+        symphony, "collect_new_data", lambda *a, **k: (False, "abc")
+    )
+    monkeypatch.setattr(symphony, "markov_entropy", lambda text: 1.0)
+    monkeypatch.setattr(symphony, "model_perplexity", lambda text: 2.0)
+    monkeypatch.setattr(symphony, "_prepare_char_dataset", lambda *a, **k: None)
+    monkeypatch.setattr(symphony, "train_model", lambda *a, **k: None)
+
+    metrics = symphony.run_orchestrator(dataset_dir=tmp_path)
+    assert metrics == {"markov_entropy": 1.0, "model_perplexity": 2.0}
+
+
 def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
     from GENESIS_orchestrator import symphony
 
