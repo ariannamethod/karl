@@ -1,4 +1,4 @@
-from GENESIS_orchestrator import state
+from GENESIS_orchestrator import orchestrator as state
 
 
 def test_file_hash_consistency(tmp_path):
