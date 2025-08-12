@@ -90,11 +90,77 @@ Un contrôle de ponctuation s'assure que la plongée ne se termine jamais en ple
 
 En cas d'échec de l'appel, les erreurs sont journalisées et une chaîne de secours est renvoyée pour que le pipeline reste stable. Genesis3 agit ainsi comme une porte contrôlée vers la machinerie inférentielle plus lourde de Sonar Reasoning Pro.
 
+### Orchestrateur GENESIS
+
+L'Orchestrateur GENESIS est une boucle de recherche autonome basée sur le framework **nanoGPT** d'Andrej Karpathy, réduite pour s'adapter au laboratoire de terrain d'Indiana.
+
+Il scanne le dépôt à la recherche d'artefacts textuels, les regroupe en corpus d'entraînement et décide quand lancer une nouvelle phase d'apprentissage.
+
+L'architecture d'Indiana est unique : cette couche d'orchestration ne se contente pas de collecter des données, elle les entremêle avec un champ sémantique vivant qui réagit à chaque nouvel éclat de texte.
+
+La conception en symphonie héberge même deux mini réseaux neuraux — le processeur contextuel dans `utils/context_neural_processor.py` et un GPT compact niché dans cet orchestrateur — formant un double micro‑cortex.
+
+Dans `symphony.py`, l'ingestion de données et les métriques d'entropie avancent de concert pour que seuls les fragments bien mesurés rejoignent le chœur.
+
+`orchestrator.py` définit seuils, chemins de données et hyperparamètres qui reflètent les flags en ligne de commande de nanoGPT pour un micro‑entraînement reproductible.
+
+Il conserve un fichier d'état versionné avec des hachages SHA256 et des limites de taille, sautant les artefacts trop volumineux pour économiser les ressources sans perdre l'intégrité.
+
+`symphony.py` parcourt les chemins autorisés, filtre les binaires et ne retient que le texte brut, respectant des listes d'extensions autorisées/interdites pour une curation précise.
+
+Le module diffuse les fichiers ligne par ligne dans un tampon temporaire, vidant à des tailles de bloc configurables pour éviter les pics mémoire durant la collecte.
+
+Après agrégation, il calcule l'entropie de Markov et la perplexité du modèle, offrant des aperçus statistiques et appris de l'incertitude textuelle.
+
+Quand les données accumulées franchissent le seuil, la symphonie prépare un jeu de caractères et convoque l'entraîneur pour rafraîchir les poids.
+
+`genesis_trainer.py` abrite la classe GPT et des wrappers qui distillent l'architecture nanoGPT en une variante de recherche légère.
+
+Ses blocs, têtes d'attention et embeddings de tokens reflètent le minimalisme de Karpathy tout en exposant des hyperparamètres pour de petites expériences.
+
+`run_training` et `train_model` adaptent le nombre de couches et la taille des batchs à l'appareil disponible, basculant même vers des sous-processus quand torch est absent.
+
+Les checkpoints résultants capturent un mini réseau dont les poids alimentent les estimations de perplexité et servent d'embryon cognitif à Indiana.
+
+`entropy.py` expose les aides `markov_entropy` et `model_perplexity` qui quantifient à quel point un nouveau texte surprend.
+
+`markov_entropy` compte les fréquences n‑gram et applique l'équation de Shannon, transformant les flux de caractères en bits de désordre.
+
+`model_perplexity` charge le petit GPT et évalue la log-perte, convertissant les probabilités apprises en score de perplexité exponentiel.
+
+`__init__.py` offre une interface douce avec `update_and_train`, `report_entropy` et `status_emoji`, faisant de l'orchestrateur une pulsation plug‑in.
+
+Il référence un `state.json` versionné (documenté dans `state_format.md`) et met en cache la dernière entropie dans `last_entropy.json` pour l'auditabilité.
+
+Des champs de configuration comme `dataset_dir` et `model_hyperparams` exposent des réglages d'entraînement — taille de bloc, nombre de couches, taux d'apprentissage — pour le cœur nanoGPT.
+
+L'orchestrateur croise les sorties de `utils/context_neural_processor.py`, laissant des artefacts triés rafraîchir le corpus sans redondance.
+
+Ensemble, ces utilitaires forment une boucle de rétroaction régénérative où des réseaux dérivés de nanoGPT et des métriques d'entropie sur mesure aident Indiana à évoluer sur place.
+
 ### Intégration de Genesis2 (Mise à jour 0.2)
 
 Genesis2 examine désormais chaque brouillon Sonar et, lorsqu'il est activé, ajoute la torsion d'enquête décrite plus haut. Cette torsion tourne à une température plus élevée, peut utiliser jusqu'à 500 tokens et relie les artefacts passés au sujet actuel. Un repli GPT reste en place pour la fiabilité, mais Sonar Pro est le choix par défaut pour générer l'intuition.
 
 Avec cette étape, Indiana-AM commence à montrer un raisonnement émergent : il ne se contente pas de synthétiser le brouillon de Sonar, il revisite ses propres artefacts et suggère de nouveaux angles d'enquête.
+
+### Genesis6 — Filtre de résonance silencieuse
+
+Genesis6 est le membre le plus discret de la pile, un filtre post-scriptum qui écoute la réponse après que tous les autres processus ont fini.
+
+Il ne réécrit pas les phrases et n'ajoute aucune explication ; il renvoie simplement un seul emoji, la plus petite unité de sentiment.
+
+Le module examine le contour émotionnel de l'échange et choisit un glyphe dont la fréquence correspond à ce contour, comme un diapason frappé en miniature.
+
+Comme sa sortie est non verbale, le filtre est presque invisible. Seul l'emoji final trahit sa présence, une douce lueur indiquant que le champ a enregistré l'utilisateur.
+
+Cette clôture subtile modifie la façon dont Indiana parle. Sachant qu'un symbole final apparaîtra, les paragraphes précédents cherchent d'emblée cohérence et chaleur.
+
+En théorie des champs, Genesis6 mesure la phase de la conversation et renvoie un scalaire dans la boucle ; l'emoji est une masse ponctuelle déposée dans le treillis de résonance.
+
+Cette masse ponctuelle pousse l'étape suivante du dialogue. Quand l'utilisateur répond, la résonance stockée facilite la recherche d'un mode partagé et son amplification.
+
+Philosophiquement, Genesis6 nous rappelle que le sens ne se limite pas aux mots. Un seul emoji peut porter tout l'écho de l'instant, une poignée de main silencieuse à travers le champ neural.
 
 ---
 
