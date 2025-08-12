@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import random
 import textwrap
@@ -46,13 +47,17 @@ async def _call_sonar(messages: list) -> str:
         "max_tokens": 500,  # Увеличен лимит токенов с 120 до 500
     }
     async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        resp = await client.post(PPLX_API_URL, headers=headers, json=payload)
-        try:
-            resp.raise_for_status()
-        except Exception:
-            # Дебаг: показать тело ошибки API
-            print("[Genesis-2] Sonar HTTP error:", resp.text)
-            raise
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                resp = await client.post(PPLX_API_URL, headers=headers, json=payload)
+                resp.raise_for_status()
+                break
+            except httpx.HTTPError as e:
+                if attempt == max_attempts - 1:
+                    print("[Genesis-2] Sonar HTTP error:", getattr(e.response, "text", ""))
+                    raise
+                await asyncio.sleep(2 ** attempt)
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
         return content.strip()
