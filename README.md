@@ -353,7 +353,7 @@ When Pinecone credentials exist, `RemoteVectorStore` employs the `AsyncOpenAI` c
 
 `store` upserts vectors into the Pinecone index, attaching metadata for text and optional user identifiers. The analogous `search` routine queries the index with optional filters, returning the top-\( k \) matches’ text fields.
 
-Absent Pinecone, a `LocalVectorStore` retains snippets in an in-memory dictionary. Retrieval degrades gracefully to computing a `SequenceMatcher` ratio between the query and each stored text, approximating cosine similarity in a purely lexical space.
+Absent Pinecone, a `LocalVectorStore` retains snippets in an in-memory dictionary. Retrieval uses OpenAI embeddings (or a lightweight fallback) with cosine similarity. Embeddings are cached to avoid recomputation, and searches may be bounded by time or by the number of documents examined.
 
 `create_vector_store` decides at runtime which backend to use, emitting a warning when falling back to the local implementation. This factory pattern isolates external dependencies and simplifies testing.
 
