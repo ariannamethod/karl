@@ -1,21 +1,28 @@
 import argparse
 import json
 import math
-import os
 import sys
 import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Iterable, Tuple
 
-ALLOWED_EXTS = {'.txt', '.md', '.log', '.jsonl'}
 DATASET_FILE = Path(__file__).with_name('gen_data.txt')
 DEFAULT_THRESHOLD = 256 * 1024  # 256KB
 
-def _iter_text_files(paths: Iterable[Path]) -> Iterable[Path]:
+def _looks_binary(path: Path) -> bool:
+    try:
+        with path.open('rb') as f:
+            chunk = f.read(1024)
+        return b'\0' in chunk
+    except Exception:
+        return True
+
+def _iter_text_files(paths: Iterable[Path], exclude: Iterable[Path]) -> Iterable[Path]:
+    exclude = {p.resolve() for p in exclude}
     for base in paths:
         for path in base.rglob('*'):
-            if path.is_file() and path.suffix.lower() in ALLOWED_EXTS:
+            if path.is_file() and path.resolve() not in exclude and not _looks_binary(path):
                 yield path
 
 def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FILE,
@@ -23,7 +30,7 @@ def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FI
     """Collect text from base_paths and write to dataset_path when threshold exceeded."""
     collected = []
     total = 0
-    for path in _iter_text_files(base_paths):
+    for path in _iter_text_files(base_paths, exclude=[dataset_path]):
         try:
             text = path.read_text(encoding='utf-8')
         except Exception:
@@ -36,8 +43,11 @@ def collect_new_data(base_paths: Iterable[Path], dataset_path: Path = DATASET_FI
     return False, ''.join(collected)
 
 def markov_entropy(text: str, n: int = 2) -> float:
-    if len(text) < n:
+    if not isinstance(text, str):
+        raise TypeError('text must be a string')
+    if not text:
         return 0.0
+    n = max(1, min(n, len(text)))
     counts = Counter(text[i:i + n] for i in range(len(text) - n + 1))
     total = sum(counts.values())
     return -sum((c / total) * math.log2(c / total) for c in counts.values())

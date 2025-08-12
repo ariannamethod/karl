@@ -214,4 +214,5 @@ lighthouse_memory.db
 # Genesis orchestrator artifacts
 GENESIS_orchestrator/gen_data.txt
 GENESIS_orchestrator/weights/
+GENESIS_orchestrator/data/
 
