@@ -15,7 +15,7 @@ from .orchestrator import (
     save_state,
     threshold as DEFAULT_THRESHOLD,
 )
-from .entropy import markov_entropy, model_perplexity
+from .entropy import MarkovEntropyCalculator, PerplexityCalculator
 from .genesis_trainer import prepare_char_dataset, train_model
 
 LOGGER = logging.getLogger(__name__)
@@ -65,34 +65,20 @@ def collect_new_data(
     logger: Optional[logging.Logger] = None,
     allow_ext: Iterable[str] = DEFAULT_ALLOW_EXT,
     deny_ext: Optional[Iterable[str]] = None,
-    chunk_size: int = 8192,
-) -> Tuple[bool, str]:
-    """Collect text from ``base_paths`` and write to ``dataset_path`` when threshold exceeded.
-
-    Files are streamed line by line to avoid holding large intermediate strings in memory.
-    ``chunk_size`` controls how many bytes are buffered before flushing to the final
-    output string.
-    """
+) -> Tuple[bool, dict]:
+    """Collect text and compute metrics while streaming to ``dataset_path``."""
 
     log = logger or LOGGER
     file_state = load_state() if resume else {}
     temp_path = dataset_path.with_suffix(dataset_path.suffix + ".tmp")
     total = 0
-    data_parts: list[str] = []
-    buffer: list[str] = []
-    buffer_bytes = 0
-
-    def flush_buffer() -> None:
-        nonlocal buffer_bytes
-        if buffer:
-            data_parts.append("".join(buffer))
-            buffer.clear()
-            buffer_bytes = 0
+    nl = "\n"
+    nl_bytes = len(nl.encode("utf-8"))
+    markov_calc = MarkovEntropyCalculator()
+    perplex_calc = PerplexityCalculator()
 
     with temp_path.open("w", encoding="utf-8") as tmp:
         first = True
-        nl = "\n"
-        nl_bytes = len(nl.encode("utf-8"))
         for path in _iter_text_files(
             base_paths,
             exclude=[dataset_path, STATE_FILE, temp_path],
@@ -113,24 +99,20 @@ def collect_new_data(
                 continue
 
             def process_file() -> bool:
-                nonlocal total, buffer_bytes
+                nonlocal total
                 if not first:
                     tmp.write(nl)
-                    buffer.append(nl)
+                    markov_calc.update(nl)
+                    perplex_calc.update(nl)
                     total += nl_bytes
-                    buffer_bytes += nl_bytes
-                    if buffer_bytes >= chunk_size:
-                        flush_buffer()
                 try:
                     with path.open("r", encoding="utf-8") as src:
                         for line in src:
                             tmp.write(line)
-                            buffer.append(line)
                             line_bytes = len(line.encode("utf-8"))
                             total += line_bytes
-                            buffer_bytes += line_bytes
-                            if buffer_bytes >= chunk_size:
-                                flush_buffer()
+                            markov_calc.update(line)
+                            perplex_calc.update(line)
                     return True
                 except Exception:
                     log.exception("failed to read %s", path)
@@ -138,12 +120,10 @@ def collect_new_data(
                         with path.open("r", encoding="utf-8", errors="ignore") as src:
                             for line in src:
                                 tmp.write(line)
-                                buffer.append(line)
                                 line_bytes = len(line.encode("utf-8"))
                                 total += line_bytes
-                                buffer_bytes += line_bytes
-                                if buffer_bytes >= chunk_size:
-                                    flush_buffer()
+                                markov_calc.update(line)
+                                perplex_calc.update(line)
                         return True
                     except Exception:
                         log.exception("failed to read %s even with errors ignored", path)
@@ -154,14 +134,16 @@ def collect_new_data(
             first = False
             file_state[key] = {"hash": h, "size": size}
 
-    flush_buffer()
     save_state(file_state)
-    data = "".join(data_parts)
+    metrics = {
+        "markov_entropy": round(markov_calc.entropy(), 2),
+        "model_perplexity": round(perplex_calc.perplexity(), 2),
+    }
     if total >= threshold:
         temp_path.replace(dataset_path)
-        return True, data
+        return True, metrics
     temp_path.unlink(missing_ok=True)
-    return False, data
+    return False, metrics
 
 
 def run_orchestrator(
@@ -176,7 +158,7 @@ def run_orchestrator(
 
     repo_root = Path(__file__).resolve().parents[1]
     base_paths = [repo_root / "artefacts", repo_root]
-    ready, text = collect_new_data(
+    ready, metrics = collect_new_data(
         base_paths,
         DATASET_FILE,
         threshold,
@@ -184,11 +166,8 @@ def run_orchestrator(
         allow_ext=allow_ext,
         deny_ext=deny_ext,
     )
-    metrics = {
-        "markov_entropy": round(markov_entropy(text), 2),
-        "model_perplexity": round(model_perplexity(text), 2),
-    }
     if ready and not dry_run:
+        text = DATASET_FILE.read_text(encoding="utf-8")
         prepare_char_dataset(text, dataset_dir)
         train_model(dataset_dir, Path(__file__).parent / "weights")
     return metrics

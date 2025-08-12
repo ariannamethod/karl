@@ -14,9 +14,9 @@ from GENESIS_orchestrator.entropy import markov_entropy  # noqa: E402
 def test_binary_files_are_skipped(tmp_path):
     binary = tmp_path / "bin.dat"
     binary.write_bytes(b"\x00\x01\x02")
-    ready, data = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1)
+    ready, metrics = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1)
     assert ready is False
-    assert data == ""
+    assert metrics == {"markov_entropy": 0.0, "model_perplexity": 0.0}
 
 
 def test_collect_new_data_mixed_binary_and_text(tmp_path, monkeypatch):
@@ -26,10 +26,10 @@ def test_collect_new_data_mixed_binary_and_text(tmp_path, monkeypatch):
     binary = tmp_path / "b.bin"
     binary.write_bytes(b"\x00\x01\x02")
     dataset = tmp_path / "out.txt"
-    ready, data = collect_new_data([tmp_path], dataset, threshold=1)
+    ready, metrics = collect_new_data([tmp_path], dataset, threshold=1)
     assert ready is True
-    assert data == "hello"
     assert dataset.read_text() == "hello"
+    assert metrics["markov_entropy"] >= 0.0
     saved = json.loads((tmp_path / "state.json").read_text())
     files = saved["files"]
     assert str(text_file.resolve()) in files
@@ -57,9 +57,8 @@ def test_collect_new_data_with_threshold(tmp_path):
     file = tmp_path / "a.txt"
     file.write_text("hi")
     dataset = tmp_path / "out.txt"
-    ready, data = collect_new_data([tmp_path], dataset, threshold=1)
+    ready, metrics = collect_new_data([tmp_path], dataset, threshold=1)
     assert ready is True
-    assert data == "hi"
     assert dataset.read_text() == "hi"
 
 
@@ -67,9 +66,9 @@ def test_collect_new_data_without_threshold(tmp_path):
     file = tmp_path / "a.txt"
     file.write_text("hi")
     dataset = tmp_path / "out.txt"
-    ready, data = collect_new_data([tmp_path], dataset, threshold=10)
+    ready, metrics = collect_new_data([tmp_path], dataset, threshold=10)
     assert ready is False
-    assert data == "hi"
+    assert metrics["markov_entropy"] >= 0.0
     assert not dataset.exists()
 
 
@@ -77,11 +76,8 @@ def test_collect_new_data_with_small_chunk(tmp_path):
     file = tmp_path / "a.txt"
     file.write_text("hello\nworld")
     dataset = tmp_path / "out.txt"
-    ready, data = collect_new_data(
-        [tmp_path], dataset, threshold=1, chunk_size=1
-    )
+    ready, metrics = collect_new_data([tmp_path], dataset, threshold=1)
     assert ready is True
-    assert data == "hello\nworld"
     assert dataset.read_text() == "hello\nworld"
 
 
@@ -89,10 +85,8 @@ def test_run_orchestrator_returns_metrics(monkeypatch, tmp_path):
     from GENESIS_orchestrator import symphony
 
     monkeypatch.setattr(
-        symphony, "collect_new_data", lambda *a, **k: (False, "abc")
+        symphony, "collect_new_data", lambda *a, **k: (False, {"markov_entropy": 1.0, "model_perplexity": 2.0})
     )
-    monkeypatch.setattr(symphony, "markov_entropy", lambda text: 1.0)
-    monkeypatch.setattr(symphony, "model_perplexity", lambda text: 2.0)
     monkeypatch.setattr(symphony, "prepare_char_dataset", lambda *a, **k: None)
     monkeypatch.setattr(symphony, "train_model", lambda *a, **k: None)
 
@@ -114,7 +108,8 @@ def test_main_reads_config_and_cli_override(monkeypatch, tmp_path):
         captured["threshold"] = threshold
         captured["allow_ext"] = list(allow_ext) if allow_ext else None
         captured["deny_ext"] = list(deny_ext) if deny_ext else None
-        return True, "abc"
+        dataset_path.write_text("abc")
+        return True, {"markov_entropy": 0.0, "model_perplexity": 0.0}
 
     def fake_prepare(text, dest):
         captured["dataset_dir"] = dest
