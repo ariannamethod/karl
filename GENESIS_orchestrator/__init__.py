@@ -43,7 +43,6 @@ def update_and_train() -> None:
     """
     global _last_entropy, _status
     state_exists = STATE_FILE.exists()
-    _status = "⏳"
     try:
         metrics = run_orchestrator(
             threshold=0 if not state_exists else DEFAULT_THRESHOLD,
@@ -51,8 +50,10 @@ def update_and_train() -> None:
         )
         _last_entropy = float(metrics.get("markov_entropy", 0.0))
         _write_entropy_file(_last_entropy)
-    finally:
+        _status = "⏳"
+    except Exception:
         _status = ""
+        raise
 
 
 def report_entropy() -> float:

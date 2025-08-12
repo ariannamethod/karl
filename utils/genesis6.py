@@ -42,10 +42,10 @@ def _build_prompt(user_message: str, meta: dict, language: str) -> list:
     """).strip()
 
     meta_str = "\n".join([f"{k}: {v}" for k, v in meta.items()])
+    combined_user = f"USER MESSAGE >>> {user_message}\nCONTEXT META >>>\n{meta_str}" if meta_str else f"USER MESSAGE >>> {user_message}"
     return [
         {"role": "system", "content": system_msg},
-        {"role": "user", "content": f"USER MESSAGE >>> {user_message}"},
-        {"role": "user", "content": f"CONTEXT META >>>\n{meta_str}"},
+        {"role": "user", "content": combined_user},
     ]
 
 
