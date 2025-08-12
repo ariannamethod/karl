@@ -55,6 +55,19 @@ DATA_DIR = Path(os.getenv("LETSGO_DATA_DIR", Path.home() / ".letsgo"))
 CONFIG_PATH = DATA_DIR / "config"
 
 
+# try to expose repository root so "utils" modules can be imported
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+try:
+    from utils.kernel_metrics import KernelMetrics
+
+    KM = KernelMetrics()
+except Exception:  # pragma: no cover - metrics are optional
+    KM = None
+
+
 @dataclass
 class Settings:
     prompt: str = ">> "
@@ -174,15 +187,45 @@ def _first_ip() -> str:
 
 
 def status() -> str:
-    """Return basic system metrics."""
+    """Return basic system metrics.
+
+    When :mod:`utils.kernel_metrics` is available additional disk and network
+    statistics are reported via eBPF.  Otherwise the function falls back to
+    simple ``/proc`` lookups.
+    """
+
     cpu = os.cpu_count()
     uptime = Path("/proc/uptime").read_text().split()[0]
     ip = _first_ip()
-    return f"CPU cores: {cpu}\nUptime: {uptime}s\nIP: {ip}"
+    lines = [f"CPU cores: {cpu}", f"Uptime: {uptime}s", f"IP: {ip}"]
+    if KM and KM.available:
+        disk = KM.disk()
+        net = KM.net()
+        if "bytes" in disk:
+            lines.append(f"Disk bytes: {disk['bytes']}")
+        else:
+            lines.append(
+                f"Disk read {disk.get('read', 0)} bytes, write {disk.get('write', 0)} bytes"
+            )
+        if "rx" in net:
+            lines.append(f"Network rx {net['rx']} bytes, tx {net['tx']} bytes")
+        else:
+            lines.append(f"Network bytes: {net.get('bytes', 0)}")
+    else:
+        lines.append(disk_usage_info())
+    return "\n".join(lines)
 
 
 def cpu_load() -> str:
-    """Return CPU load averages."""
+    """Return CPU load statistics.
+
+    If kernel metrics are active the value represents context switches per CPU
+    observed by eBPF.  Otherwise traditional load averages are returned.
+    """
+
+    if KM and KM.available:
+        load, *_ = KM.cpu()
+        return f"Context switches per CPU: {load:.2f}"
     load1, load5, load15 = os.getloadavg()
     return f"Load average (1m,5m,15m): {load1:.2f}, {load5:.2f}, {load15:.2f}"
 

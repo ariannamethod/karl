@@ -20,6 +20,12 @@ Bash, curl, and nano compose the minimal interactive toolkit; each utility occup
 
 The CLI terminal shipped in `letsgo.py` demonstrates logging and echo capabilities, acting as a proof of concept for higher-order reasoning modules.
 
+When the host kernel supports eBPF and the Python `bcc` bindings are present,
+`letsgo.py` sources CPU, disk and network statistics from a small
+`kernel_metrics` module.  On systems lacking eBPF support these commands
+silently fall back to parsing files under `/proc`, ensuring basic monitoring
+still functions.
+
 Logs are stored in `/arianna_core/log` and each entry is timestamped, forming a sequence ((t_i, m_i)) representing chronological states of dialogue.
 
 The build script uses curl to fetch kernel and rootfs sources, then applies a configuration where required options satisfy predicates for ext4, overlay, and isolation features.
