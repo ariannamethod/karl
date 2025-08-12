@@ -28,7 +28,7 @@ from utils.genesis6 import genesis6_profile_filter
 from utils.deepdiving import perplexity_search
 from utils.vision import analyze_image
 from utils.imagine import imagine
-from utils.coder import interpret_code
+from utils.coder import interpret_code, format_core_commands
 from utils.complexity import (
     ThoughtComplexityLogger,
     estimate_complexity_and_entropy,
@@ -866,9 +866,12 @@ async def handle_message(m: types.Message):
         # Handle coder mode
         if user_id in CODER_USERS:
             async with ChatActionSender(bot=bot, chat_id=chat_id, action="typing"):
-                result = await interpret_code(text)
-                if profile:
-                    result = await process_with_assistant(result, "", lang, profile)
+                if text.strip() == "/help":
+                    result = format_core_commands()
+                else:
+                    result = await interpret_code(text)
+                    if profile:
+                        result = await process_with_assistant(result, "", lang, profile)
                 twist = await genesis2_sonar_filter(text, result, lang)
             reply = f"{result}\n\n🜂 Investigative Twist → {twist}"
             await memory.save(user_id, text, reply)
