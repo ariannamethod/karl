@@ -1,8 +1,10 @@
+import json
 import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from GENESIS_orchestrator import state  # noqa: E402
 from GENESIS_orchestrator.symphony import collect_new_data, markov_entropy  # noqa: E402
 
 
@@ -12,6 +14,23 @@ def test_binary_files_are_skipped(tmp_path):
     ready, data = collect_new_data([tmp_path], tmp_path / "out.txt", threshold=1)
     assert ready is False
     assert data == ""
+
+
+def test_collect_new_data_mixed_binary_and_text(tmp_path, monkeypatch):
+    monkeypatch.setattr(state, "STATE_FILE", tmp_path / "state.json")
+    text_file = tmp_path / "a.txt"
+    text_file.write_text("hello")
+    binary = tmp_path / "b.bin"
+    binary.write_bytes(b"\x00\x01\x02")
+    dataset = tmp_path / "out.txt"
+    ready, data = collect_new_data([tmp_path], dataset, threshold=1)
+    assert ready is True
+    assert data == "hello"
+    assert dataset.read_text() == "hello"
+    saved = json.loads((tmp_path / "state.json").read_text())
+    files = saved["files"]
+    assert str(text_file.resolve()) in files
+    assert str(binary.resolve()) not in files
 
 
 def test_markov_entropy_on_simple_strings():
