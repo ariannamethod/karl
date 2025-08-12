@@ -197,7 +197,7 @@ def prepare_char_dataset(text: str, dest: Path) -> None:
     itos = {i: ch for i, ch in enumerate(chars)}
     n = len(text)
     train_data = text[: int(n * 0.9)]
-    val_data = text[int(n * 0.9) :]
+    val_data = text[int(n * 0.9):]
     train_ids = np.array([stoi[c] for c in train_data], dtype=np.uint16)
     val_ids = np.array([stoi[c] for c in val_data], dtype=np.uint16)
     dest.mkdir(parents=True, exist_ok=True)
@@ -208,12 +208,121 @@ def prepare_char_dataset(text: str, dest: Path) -> None:
         pickle.dump(meta, f)
 
 
+def run_training(
+    dataset_dir: Path,
+    out_dir: Path,
+    *,
+    device: str = "cpu",
+    hyperparams: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    """Train the small GPT model directly in-process.
+
+    Parameters
+    ----------
+    dataset_dir:
+        Directory containing ``train.bin``, ``val.bin`` and ``meta.pkl`` files.
+    out_dir:
+        Directory where checkpoints will be written.
+    device:
+        Target device to run the training on.
+    hyperparams:
+        Optional hyperparameter overrides.
+
+    Returns
+    -------
+    Dict[str, Any]
+        A dictionary containing the final training loss for simple inspection.
+    """
+
+    if torch is None:  # pragma: no cover - guarded by train_model
+        raise ImportError("torch is required for in-memory training")
+
+    import pickle
+    import numpy as np
+
+    hp = dict(model_hyperparams)
+    if hyperparams:
+        hp.update(hyperparams)
+
+    with open(Path(dataset_dir) / "meta.pkl", "rb") as f:
+        meta = pickle.load(f)
+    vocab_size = int(meta["vocab_size"])
+    block_size = int(hp["block_size"])
+    batch_size = int(hp["batch_size"])
+
+    train_data = np.memmap(Path(dataset_dir) / "train.bin", dtype=np.uint16, mode="r")
+    val_data = np.memmap(Path(dataset_dir) / "val.bin", dtype=np.uint16, mode="r")
+
+    def get_batch(split: str = "train"):
+        data = train_data if split == "train" else val_data
+        ix = torch.randint(len(data) - block_size, (batch_size,))
+        x = torch.stack([
+            torch.from_numpy((data[i:i + block_size]).astype(np.int64)) for i in ix
+        ])
+        y = torch.stack([
+            torch.from_numpy((data[i + 1:i + 1 + block_size]).astype(np.int64))
+            for i in ix
+        ])
+        return x.to(device), y.to(device)
+
+    config = GPTConfig(
+        block_size=block_size,
+        vocab_size=vocab_size,
+        n_layer=hp["n_layer"],
+        n_head=hp["n_head"],
+        n_embd=hp["n_embd"],
+        dropout=hp.get("dropout", 0.0),
+        bias=True,
+    )
+    model = GPT(config).to(device)
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=hp.get("learning_rate", 1e-3))
+    max_iters = int(hp.get("max_iters", 10))
+    loss = torch.tensor(0.0)
+    for _ in range(max_iters):
+        xb, yb = get_batch("train")
+        _, loss = model(xb, yb)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ckpt = out_dir / "ckpt.pt"
+    torch.save(model.state_dict(), ckpt)
+    shutil.copy(ckpt, out_dir / "model.pth")
+    return {"loss": float(loss.item())}
+
+
 def train_model(dataset_dir: Path, out_dir: Path) -> None:
-    """Run the lightweight training script via subprocess."""
+    """Train the model directly when torch is available.
+
+    Falls back to executing this module in a subprocess if torch cannot be
+    imported. The subprocess path mirrors the previous behaviour and is mostly
+    useful in constrained test environments.
+    """
+
     try:
         device = "cuda" if torch is not None and torch.cuda.is_available() else "cpu"
     except Exception:
         device = "cpu"
+
+    hyperparams = dict(model_hyperparams)
+    if device == "cpu":
+        hyperparams.update(
+            {
+                "block_size": 32,
+                "batch_size": 4,
+                "n_layer": 1,
+                "n_head": 1,
+                "n_embd": 32,
+            }
+        )
+
+    if torch is not None:
+        run_training(dataset_dir, out_dir, device=device, hyperparams=hyperparams)
+        return
+
     cmd = [
         sys.executable,
         "genesis_trainer.py",
@@ -223,15 +332,6 @@ def train_model(dataset_dir: Path, out_dir: Path) -> None:
         "--eval_iters=1",
         "--log_interval=1",
     ]
-    hyperparams = dict(model_hyperparams)
-    if device == "cpu":
-        hyperparams.update({
-            "block_size": 32,
-            "batch_size": 4,
-            "n_layer": 1,
-            "n_head": 1,
-            "n_embd": 32,
-        })
     for key, value in hyperparams.items():
         cmd.append(f"--{key}={value}")
     cmd.append(f"--out_dir={out_dir}")
