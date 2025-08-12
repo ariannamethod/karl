@@ -12,7 +12,7 @@ from openai import OpenAI
 
 from utils.aml_terminal import terminal
 from utils.genesis2 import genesis2_sonar_filter
-from utils.security import is_blocked, log_blocked
+from utils.security import is_blocked, is_allowed, log_blocked
 
 # Import core command definitions from the LetsGo terminal
 CORE_DIR = Path(__file__).resolve().parent.parent / "AM-Linux-Core"
@@ -135,7 +135,7 @@ async def kernel_exec(command: str) -> str:
     The command is executed inside the Arianna core environment and all
     activity is logged under ``/arianna_core/log``.
     """
-    if is_blocked(command):
+    if is_blocked(command) or not is_allowed(command):
         log_blocked(command)
         base = "Ты и правда думал, что это сработает? Нет, дружище! Терминал закрыт."
         twist = await genesis2_sonar_filter(command, base, "ru")
