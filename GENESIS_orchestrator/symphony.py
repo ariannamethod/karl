@@ -65,16 +65,34 @@ def collect_new_data(
     logger: Optional[logging.Logger] = None,
     allow_ext: Iterable[str] = DEFAULT_ALLOW_EXT,
     deny_ext: Optional[Iterable[str]] = None,
+    chunk_size: int = 8192,
 ) -> Tuple[bool, str]:
-    """Collect text from ``base_paths`` and write to ``dataset_path`` when threshold exceeded."""
+    """Collect text from ``base_paths`` and write to ``dataset_path`` when threshold exceeded.
+
+    Files are streamed line by line to avoid holding large intermediate strings in memory.
+    ``chunk_size`` controls how many bytes are buffered before flushing to the final
+    output string.
+    """
 
     log = logger or LOGGER
     file_state = load_state() if resume else {}
     temp_path = dataset_path.with_suffix(dataset_path.suffix + ".tmp")
     total = 0
-    parts = []
+    data_parts: list[str] = []
+    buffer: list[str] = []
+    buffer_bytes = 0
+
+    def flush_buffer() -> None:
+        nonlocal buffer_bytes
+        if buffer:
+            data_parts.append("".join(buffer))
+            buffer.clear()
+            buffer_bytes = 0
+
     with temp_path.open("w", encoding="utf-8") as tmp:
         first = True
+        nl = "\n"
+        nl_bytes = len(nl.encode("utf-8"))
         for path in _iter_text_files(
             base_paths,
             exclude=[dataset_path, STATE_FILE, temp_path],
@@ -93,24 +111,52 @@ def collect_new_data(
             entry = file_state.get(key)
             if entry and entry.get("hash") == h and entry.get("size") == size:
                 continue
-            try:
-                text = path.read_text(encoding="utf-8")
-            except Exception:
-                log.exception("failed to read %s", path)
+
+            def process_file() -> bool:
+                nonlocal total, buffer_bytes
+                if not first:
+                    tmp.write(nl)
+                    buffer.append(nl)
+                    total += nl_bytes
+                    buffer_bytes += nl_bytes
+                    if buffer_bytes >= chunk_size:
+                        flush_buffer()
                 try:
-                    text = path.read_text(encoding="utf-8", errors="ignore")
+                    with path.open("r", encoding="utf-8") as src:
+                        for line in src:
+                            tmp.write(line)
+                            buffer.append(line)
+                            line_bytes = len(line.encode("utf-8"))
+                            total += line_bytes
+                            buffer_bytes += line_bytes
+                            if buffer_bytes >= chunk_size:
+                                flush_buffer()
+                    return True
                 except Exception:
-                    log.exception("failed to read %s even with errors ignored", path)
-                    continue
-            if not first:
-                tmp.write("\n")
-            tmp.write(text)
+                    log.exception("failed to read %s", path)
+                    try:
+                        with path.open("r", encoding="utf-8", errors="ignore") as src:
+                            for line in src:
+                                tmp.write(line)
+                                buffer.append(line)
+                                line_bytes = len(line.encode("utf-8"))
+                                total += line_bytes
+                                buffer_bytes += line_bytes
+                                if buffer_bytes >= chunk_size:
+                                    flush_buffer()
+                        return True
+                    except Exception:
+                        log.exception("failed to read %s even with errors ignored", path)
+                        return False
+
+            if not process_file():
+                continue
             first = False
-            parts.append(text)
-            total += len(text.encode("utf-8"))
             file_state[key] = {"hash": h, "size": size}
+
+    flush_buffer()
     save_state(file_state)
-    data = "".join(parts)
+    data = "".join(data_parts)
     if total >= threshold:
         temp_path.replace(dataset_path)
         return True, data
