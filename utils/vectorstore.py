@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from difflib import SequenceMatcher
+import math
+import time
 from typing import Dict, List, Tuple
 import os
 import json
@@ -119,16 +120,34 @@ class LocalVectorStore(BaseVectorStore):
         """
         self.max_size = max_size
         self.persist_path = persist_path
-        # store as OrderedDict {id: (text, user_id, metadata)} to track insertion order
-        self._store: "OrderedDict[str, Tuple[str, str | None, Dict | None]]" = OrderedDict()
+        # store as OrderedDict {id: (text, embedding, user_id, metadata)}
+        self._store: "OrderedDict[str, Tuple[str, List[float] | None, str | None, Dict | None]]" = OrderedDict()
+        self._embed_cache: Dict[str, List[float]] = {}
+        self.embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+        self.client = (
+            AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            if settings.OPENAI_API_KEY
+            else None
+        )
         self._save_task: asyncio.Task | None = None
         if self.persist_path and os.path.exists(self.persist_path):
             try:
                 with open(self.persist_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    self._store = OrderedDict((k, tuple(v)) for k, v in data)
+                    for k, v in data:
+                        tup = tuple(v)
+                        if len(tup) == 4:
+                            text, emb, uid, meta = tup
+                            self._store[k] = (text, emb, uid, meta)
+                            if emb is not None:
+                                self._embed_cache[text] = emb
+                        else:  # backward compatibility
+                            text, uid, meta = tup
+                            self._store[k] = (text, None, uid, meta)
             except Exception as e:
-                logger.error("Failed to load vector store from %s: %s", self.persist_path, e)
+                logger.error(
+                    "Failed to load vector store from %s: %s", self.persist_path, e
+                )
         if self.persist_path:
             atexit.register(self._save)
 
@@ -141,6 +160,27 @@ class LocalVectorStore(BaseVectorStore):
         except Exception as e:
             logger.error("Failed to persist vector store: %s", e)
 
+    async def _generate_embedding(self, text: str) -> List[float]:
+        if self.client:
+            response = await self.client.embeddings.create(
+                model=self.embed_model, input=text
+            )
+            return response.data[0].embedding
+        # Fallback simple embedding: character frequency vector
+        vec = [0.0] * 26
+        for ch in text.lower():
+            idx = ord(ch) - 97
+            if 0 <= idx < 26:
+                vec[idx] += 1.0
+        return vec
+
+    async def embed_text(self, text: str) -> List[float]:
+        if text in self._embed_cache:
+            return self._embed_cache[text]
+        emb = await self._generate_embedding(text)
+        self._embed_cache[text] = emb
+        return emb
+
     async def store(
         self,
         id: str,
@@ -149,9 +189,10 @@ class LocalVectorStore(BaseVectorStore):
         user_id: str | None = None,
         metadata: Dict | None = None,
     ):
+        vector = await self.embed_text(text)
         if id in self._store:
             self._store.move_to_end(id)
-        self._store[id] = (text, user_id, metadata)
+        self._store[id] = (text, vector, user_id, metadata)
         # Evict the oldest entry when exceeding ``max_size``
         if self.max_size is not None and len(self._store) > self.max_size:
             self._store.popitem(last=False)
@@ -161,15 +202,38 @@ class LocalVectorStore(BaseVectorStore):
                 self._save_task.cancel()
             self._save_task = asyncio.create_task(asyncio.to_thread(self._save))
 
-    async def search(self, query: str, top_k: int = 5, *, user_id: str | None = None) -> List[str]:
+    async def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        *,
+        user_id: str | None = None,
+        max_time: float | None = None,
+        max_docs: int | None = None,
+    ) -> List[str]:
+        query_vec = await self.embed_text(query)
+        query_norm = math.sqrt(sum(x * x for x in query_vec)) or 1.0
         scored: List[Tuple[str, float]] = []
-        for _, value in self._store.items():
-            text = value[0]
-            uid = value[1] if len(value) > 1 else None
+        start = time.time()
+        processed = 0
+        for key, value in list(self._store.items()):
+            if max_docs is not None and processed >= max_docs:
+                break
+            text, emb, uid, meta = value if len(value) == 4 else (
+                value[0], None, value[1], value[2]
+            )
             if user_id and uid != user_id:
                 continue
-            score = SequenceMatcher(None, query.lower(), text.lower()).ratio()
+            if emb is None:
+                emb = await self.embed_text(text)
+                self._store[key] = (text, emb, uid, meta)
+            dot = sum(a * b for a, b in zip(query_vec, emb))
+            emb_norm = math.sqrt(sum(x * x for x in emb)) or 1.0
+            score = dot / (query_norm * emb_norm)
             scored.append((text, score))
+            processed += 1
+            if max_time is not None and time.time() - start >= max_time:
+                break
         scored.sort(key=lambda x: x[1], reverse=True)
         return [text for text, _ in scored[:top_k]]
 

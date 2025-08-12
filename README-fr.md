@@ -353,7 +353,7 @@ Lorsque des identifiants Pinecone existent, `RemoteVectorStore` utilise le clien
 
 `store` insère ou met à jour des vecteurs dans l'index Pinecone, attachant des métadonnées pour le texte et des identifiants utilisateur optionnels. La routine `search` interroge l'index avec des filtres optionnels et renvoie les textes des \( k \) meilleures correspondances.
 
-En absence de Pinecone, un `LocalVectorStore` conserve des extraits dans un dictionnaire en mémoire. La récupération se dégrade élégamment en calculant un ratio `SequenceMatcher` entre la requête et chaque texte stocké, approximant la similarité cosinus dans un espace purement lexical.
+En absence de Pinecone, un `LocalVectorStore` conserve des extraits dans un dictionnaire en mémoire. Il utilise des embeddings OpenAI (ou un substitut léger) avec similarité cosinus. Les embeddings sont mis en cache pour éviter le recalcul, et la recherche peut être bornée en temps ou en nombre de documents.
 
 `create_vector_store` décide à l'exécution quel backend utiliser et émet un avertissement lors du repli vers l'implémentation locale. Ce pattern factory isole les dépendances externes et simplifie les tests.
 
