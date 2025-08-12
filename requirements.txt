@@ -19,3 +19,4 @@ pillow
 pandas
 pyyaml
 rarfile
+tokenizers

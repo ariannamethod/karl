@@ -18,7 +18,7 @@ def markov_entropy(text: str, n: int = 2) -> float:
     if not text:
         return 0.0
     n = max(1, min(n, len(text)))
-    counts = Counter(text[i : i + n] for i in range(len(text) - n + 1))
+    counts = Counter(text[i:i + n] for i in range(len(text) - n + 1))
     total = sum(counts.values())
     return -sum((c / total) * math.log2(c / total) for c in counts.values())
 
@@ -41,12 +41,13 @@ def model_perplexity(text: str) -> float:
     model.load_state_dict(checkpoint["model"])
     model.eval()
     try:
+        from tokenizers import Tokenizer
         with open(Path(CONFIG_DATASET_DIR) / "meta.pkl", "rb") as f:
             meta = pickle.load(f)
-        stoi = meta["stoi"]
+        tokenizer = Tokenizer.from_str(meta["tokenizer"])
     except Exception:
         return 0.0
-    encoded = [stoi.get(ch, 0) for ch in text]
+    encoded = tokenizer.encode(text).ids
     if len(encoded) < 2:
         return 0.0
     import torch
@@ -55,4 +56,3 @@ def model_perplexity(text: str) -> float:
     with torch.no_grad():
         _, loss = model(ids[:, :-1], ids[:, 1:])
     return float(math.exp(loss.item()))
-

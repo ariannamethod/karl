@@ -189,21 +189,34 @@ else:  # torch not available; provide placeholders
 def prepare_char_dataset(text: str, dest: Path) -> None:
     import pickle
     import numpy as np
+    from tokenizers import Tokenizer
+    from tokenizers.models import BPE
+    from tokenizers.pre_tokenizers import ByteLevel
+    from tokenizers.trainers import BpeTrainer
 
-    chars = sorted(set(text))
-    if not text or not chars:
-        raise ValueError("text must be non-empty and contain at least one unique character")
-    stoi = {ch: i for i, ch in enumerate(chars)}
-    itos = {i: ch for i, ch in enumerate(chars)}
+    if not text:
+        raise ValueError("text must be non-empty")
+
+    tokenizer = Tokenizer(BPE(unk_token="[UNK]"))
+    tokenizer.pre_tokenizer = ByteLevel()
+    trainer = BpeTrainer(special_tokens=["[UNK]"])
+    tokenizer.train_from_iterator([text], trainer)
+
     n = len(text)
-    train_data = text[: int(n * 0.9)]
-    val_data = text[int(n * 0.9) :]
-    train_ids = np.array([stoi[c] for c in train_data], dtype=np.uint16)
-    val_ids = np.array([stoi[c] for c in val_data], dtype=np.uint16)
+    train_data = text[:int(n * 0.9)]
+    val_data = text[int(n * 0.9):]
+
+    train_ids = tokenizer.encode(train_data).ids
+    val_ids = tokenizer.encode(val_data).ids
+    vocab_size = tokenizer.get_vocab_size()
+    dtype = np.uint16 if vocab_size < 65535 else np.int32
+    train_ids = np.array(train_ids, dtype=dtype)
+    val_ids = np.array(val_ids, dtype=dtype)
+
     dest.mkdir(parents=True, exist_ok=True)
     train_ids.tofile(dest / "train.bin")
     val_ids.tofile(dest / "val.bin")
-    meta = {"vocab_size": len(chars), "itos": itos, "stoi": stoi}
+    meta = {"vocab_size": vocab_size, "tokenizer": tokenizer.to_str()}
     with open(dest / "meta.pkl", "wb") as f:
         pickle.dump(meta, f)
 
