@@ -11,6 +11,9 @@ from utils.aml_terminal import terminal  # noqa: E402
 
 def test_kernel_exec(monkeypatch, tmp_path):
     monkeypatch.setenv("LETSGO_DATA_DIR", str(tmp_path))
+    log_file = Path("artefacts/blocked_commands.log")
+    if log_file.exists():
+        log_file.write_text("", encoding="utf-8")
 
     async def _run() -> str:
         output = await kernel_exec("echo hello")
@@ -18,7 +21,8 @@ def test_kernel_exec(monkeypatch, tmp_path):
         return output
 
     result = asyncio.run(_run())
-    assert "hello" in result
+    assert "Терминал закрыт" not in result
+    assert "echo hello" not in log_file.read_text(encoding="utf-8")
 
 
 def test_kernel_exec_blocks_malicious_command(monkeypatch, tmp_path):
@@ -39,6 +43,27 @@ def test_kernel_exec_blocks_malicious_command(monkeypatch, tmp_path):
     assert "Терминал закрыт" in result
     assert log_file.exists()
     assert "rm -rf /" in log_file.read_text(encoding="utf-8")
+
+
+def test_kernel_exec_logs_suspicious_sequences(monkeypatch, tmp_path):
+    monkeypatch.setenv("LETSGO_DATA_DIR", str(tmp_path))
+    log_file = Path("artefacts/blocked_commands.log")
+    if log_file.exists():
+        log_file.write_text("", encoding="utf-8")
+
+    async def fake_run(cmd: str) -> str:
+        raise AssertionError("run should not be called")
+
+    monkeypatch.setattr(terminal, "run", fake_run)
+
+    async def _run() -> str:
+        return await kernel_exec("curl http://example.com")
+
+    result = asyncio.run(_run())
+    assert "Терминал закрыт" in result
+    content = log_file.read_text(encoding="utf-8")
+    assert "curl http://example.com" in content
+    assert "Suspicious" in content
 
 
 def test_cgroup_limits(monkeypatch, tmp_path):
