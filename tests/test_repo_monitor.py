@@ -26,3 +26,19 @@ def test_on_change_error_logs(monkeypatch, tmp_path):
     args, kwargs = mock_logger.error.call_args
     assert "on_change callback" in args[0]
     assert kwargs.get("exc_info") is True
+
+
+def test_on_change_called_once(tmp_path):
+    """Callback is triggered exactly once when a file changes."""
+    file = tmp_path / "file.txt"
+    file.write_text("first", encoding="utf-8")
+
+    callback = MagicMock()
+    watcher = RepoWatcher([tmp_path], callback)
+
+    watcher._file_sha = watcher._scan()
+
+    file.write_text("second", encoding="utf-8")
+    watcher.check_now()
+
+    callback.assert_called_once()
