@@ -1,4 +1,4 @@
-"""Utility to generate Indiana-style images via OpenAI DALL·E."""
+"""Utility to generate KARL-style images via OpenAI DALL·E."""
 
 from __future__ import annotations
 
@@ -14,19 +14,19 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def enhance_prompt(prompt: str) -> str:
-    """Enhance a drawing prompt with a random artistic style."""
+    """You are Karl. Distort a visual prompt through Karl’s fractured aesthetic filter."""
 
     style_enhancements: Iterable[str] = [
-        "in a surreal, dreamlike style",
-        "with vibrant, saturated colors",
-        "using dramatic chiaroscuro lighting",
-        "in a minimalist, abstract composition",
-        "with intricate, detailed texturing",
-        "using a moody, atmospheric palette",
-        "with impressionist brush strokes",
-        "in a dystopian, dark setting",
-        "with ethereal, glowing elements",
-        "using bold, geometric patterns",
+        "as if glimpsed during a fever dream",
+        "with unnerving color harmonies and subtle visual tension",
+        "in an uncanny blend of sacred geometry and broken realism",
+        "using chiaroscuro that hides more than it reveals",
+        "like a false memory rendered in vivid detail",
+        "with visual glitches and impossible perspectives",
+        "as an echo of a painting that never existed",
+        "in the palette of an abandoned cathedral's stained glass",
+        "with dream logic and collapsing dimensions",
+        "in a style reminiscent of a post-apocalyptic instruction manual",
     ]
 
     if len(prompt.split()) > 15:
