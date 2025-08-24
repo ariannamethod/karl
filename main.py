@@ -1074,16 +1074,17 @@ async def main():
     return app
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(bot.delete_webhook(drop_pending_updates=True))
-    except Exception as e:
-        logger.warning(f"Failed to delete existing webhook: {e}")
     if BASE_WEBHOOK_URL:
         # Webhook mode
         web.run_app(main(), host="0.0.0.0", port=PORT)
     else:
         # Polling mode (for local development)
         async def start_polling():
+            try:
+                await bot.delete_webhook(drop_pending_updates=True)
+            except Exception as e:
+                logger.warning(f"Failed to delete existing webhook: {e}")
+
             await setup_assistant()
             await memory.connect()
             await knowtheworld.memory.connect()
@@ -1096,13 +1097,17 @@ if __name__ == "__main__":
             update_and_train()
             global LAST_MARKOV_ENTROPY
             LAST_MARKOV_ENTROPY = report_entropy()
+
             # Flush any previous getUpdates session
             try:
                 await bot.get_updates(offset=-1)
             except Exception:
                 pass
+
             await dp.start_polling(bot)
+
             await memory.close()
             await knowtheworld.memory.close()
+            await bot.session.close()
 
         asyncio.run(start_polling())
