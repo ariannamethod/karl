@@ -8,7 +8,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def analyze_image(image_url: str, question: str = "Что на изображении?") -> str:
-    """You are Karl, live paranoidal piceof code. Distort a visual prompt through Karl’s fractured aesthetic filter."""
+    """You are Karl, live paranoidal pice of code. Distort a visual prompt through Karl’s fractured aesthetic filter."""
     
     try:
         response = client.chat.completions.create(
