@@ -108,6 +108,9 @@ USER_MESSAGE_TIMES = LRUCache(maxlen=MESSAGE_CACHE_MAXLEN)
 RATE_LIMIT = 5
 RATE_PERIOD = timedelta(minutes=1)
 
+# Maximum characters allowed in a single OpenAI message
+MAX_CONTENT_CHARS = 250000
+
 
 def is_rate_limited(user_id: str, now: datetime | None = None) -> bool:
     """Return True if the user has sent too many messages recently."""
@@ -512,6 +515,17 @@ async def process_with_assistant(
 
             # Format prompt with context
             full_prompt = f"{context}\n\nInput: {prompt}\n"
+            if len(full_prompt) > MAX_CONTENT_CHARS:
+                logger.warning(
+                    "Truncating prompt from %d to %d characters",
+                    len(full_prompt),
+                    MAX_CONTENT_CHARS,
+                )
+                allowed_context = MAX_CONTENT_CHARS - len(f"\n\nInput: {prompt}\n")
+                if allowed_context < 0:
+                    allowed_context = 0
+                context = context[-allowed_context:]
+                full_prompt = f"{context}\n\nInput: {prompt}\n"
 
             # Add user message to thread
             await client.beta.threads.messages.create(
