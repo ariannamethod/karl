@@ -1,6 +1,6 @@
 # KARL: Kernel for Autonomous Recursive Logic v8 | by Arianna Method
 *⚡️Dedicated to LEO⚡️*
-**Version 2.2 — Active development; this is a fixed snapshot/plateau.**
+**Version 8.0 — Active development; this is a fixed snapshot/plateau.**
 
 ## Overview
 
