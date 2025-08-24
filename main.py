@@ -212,9 +212,34 @@ class ArtifactCache:
 artifact_cache = ArtifactCache(ARTIFACTS_DIR, max_items=10)
 
 
-def reload_artifacts() -> None:
-    """Clear artefact cache when repository changes."""
+async def _handle_artifact(path: Path, sha: str) -> None:
+    """Analyse new or changed artefact and notify the creator."""
+    try:
+        analysis = await parse_and_store_file(str(path))
+    except Exception as e:  # pragma: no cover - best effort
+        logger.error(f"Failed to analyse artefact {path}: {e}")
+        return
+
+    if not CREATOR_CHAT:
+        return
+    message = (
+        f"Ага, заглянул в {path.name} (sha {sha[:8]}).\n"
+        f"Вот что я думаю:\n{analysis[:1000]}"
+    )
+    try:
+        await send_split_message(bot, CREATOR_CHAT, message)
+    except Exception as e:  # pragma: no cover - network issues
+        logger.error(f"Failed sending artefact analysis: {e}")
+
+
+def reload_artifacts(changes: list[tuple[Path, str | None]]) -> None:
+    """Clear artefact cache when repository changes and log changes."""
     artifact_cache.clear()
+    for path, sha in changes:
+        logger.info("Repo change: %s sha=%s", path, sha)
+        if sha and ARTIFACTS_DIR in path.parents:
+            asyncio.create_task(_handle_artifact(path, sha))
+
     logger.info("Artifact cache cleared after repository change")
 
     # Update GENESIS metrics whenever repository content changes

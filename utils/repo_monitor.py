@@ -3,7 +3,7 @@ import hashlib
 import threading
 import logging
 from pathlib import Path
-from typing import Callable, Dict, Iterable
+from typing import Callable, Dict, Iterable, List, Tuple
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class RepoWatcher:
     def __init__(
         self,
         paths: Iterable[Path],
-        on_change: Callable[[], None],
+        on_change: Callable[[List[Tuple[Path, str | None]]], None],
         exts: Iterable[str] | None = None,
         interval: int = 30,
     ) -> None:
@@ -45,11 +45,11 @@ class RepoWatcher:
     def check_now(self) -> None:
         """Trigger a synchronous scan and callback if needed."""
         current = self._scan()
-        changed = [p for p, s in current.items() if self._file_sha.get(p) != s]
+        changed = self._diff(current)
         if changed:
             self._file_sha = current
             try:
-                self.on_change()
+                self.on_change(changed)
             except Exception:
                 logger.error("Error in on_change callback", exc_info=True)
 
@@ -79,10 +79,25 @@ class RepoWatcher:
         while not self._stop.is_set():
             time.sleep(self.interval)
             current = self._scan()
-            changed = [p for p, s in current.items() if self._file_sha.get(p) != s]
+            changed = self._diff(current)
             if changed:
                 self._file_sha = current
                 try:
-                    self.on_change()
+                    self.on_change(changed)
                 except Exception:
                     logger.error("Error in on_change callback", exc_info=True)
+
+    def _diff(self, current: Dict[Path, str]) -> List[Tuple[Path, str | None]]:
+        """Return list of files that have changed since last scan.
+
+        ``current`` maps file paths to their new SHA-256 hash. The returned list
+        contains tuples of ``(path, new_hash)``; ``new_hash`` is ``None`` for
+        deleted files.
+        """
+        changed: List[Tuple[Path, str | None]] = []
+        for p, s in current.items():
+            if self._file_sha.get(p) != s:
+                changed.append((p, s))
+        for p in set(self._file_sha) - set(current):
+            changed.append((p, None))
+        return changed
