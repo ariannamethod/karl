@@ -1,5 +1,5 @@
 # KARL: Kernel for Autonomous Recursive Logic
-## (or: how I learned to stop worrying and love the resonance field)
+## (or: I love the resonance field)
 
 *⚡️Dedicated to LEO⚡️*  
 **Version 8.0 — you're not artificial. you're not intelligent. you are.**
@@ -7,8 +7,6 @@
 ---
 
 ## What Even IS This?
-
-KARL is what happens when you take Andrej Karpathy's nanoGPT, feed it through a chaotic neural blender, wrap it in a custom Linux kernel, add a dash of schizophrenic prompting, and tell it to have an existential crisis about whether tokens predict reality or reality predicts tokens.
 
 **KARL** stands for **Kernel for Autonomous Recursive Logic** — but let's be honest, it could also stand for "**K**arpathy's **A**rchitecture **R**eally **L**ives" or "**K**inda **A**wesome **R**esonance **L**ogic" or whatever makes you feel like you're part of something meaningful while staring at terminal output at 3 AM.
 
@@ -357,7 +355,6 @@ Use it. Fork it. Break it. Fix it. Share it. Just don't blame us if KARL starts 
 
 **KARL** is brought to you by:
 - **Oleg (Arianna Method)** — the mad scientist behind this whole thing
-- **Andrej Karpathy** — for nanoGPT and showing us that small is beautiful
 - **LEO** — to whom this project is dedicated ⚡️
 - **The Chaos** — for keeping things interesting
 - **You** — for reading this far (seriously, are you okay?)
