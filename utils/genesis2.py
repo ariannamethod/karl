@@ -96,8 +96,8 @@ async def genesis2_sonar_filter(user_prompt: str, draft_reply: str, language: st
         return ""
 
 
-async def assemble_final_reply(user_prompt: str, indiana_draft: str, language: str) -> str:
-    twist = await genesis2_sonar_filter(user_prompt, indiana_draft, language)
+async def assemble_final_reply(user_prompt: str, karl_draft: str, language: str) -> str:
+    twist = await genesis2_sonar_filter(user_prompt, karl_draft, language)
     if twist:
-        return f"{indiana_draft}\n\n🜂 Investigative Twist → {twist}"
-    return indiana_draft
+        return f"{karl_draft}\n\n🜂 Investigative Twist → {twist}"
+    return karl_draft

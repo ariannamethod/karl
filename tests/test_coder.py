@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.coder import (  # noqa: E402
     ACCESS_DENIED_MESSAGE,
-    IndianaCoder,
+    KarlCoder,
     format_core_commands,
     CORE_COMMANDS,
 )
@@ -19,7 +19,7 @@ def test_analyze_denies_outside_repo(tmp_path):
     outside_file = tmp_path / "code.py"
     outside_file.write_text("print('hi')", encoding="utf-8")
 
-    coder = IndianaCoder()
+    coder = KarlCoder()
     result = asyncio.run(coder.analyze(str(outside_file)))
     assert result == ACCESS_DENIED_MESSAGE
 
@@ -29,12 +29,12 @@ def test_analyze_allows_repo_file(monkeypatch):
     inside_file = repo_root / "tmp_test_file.py"
     inside_file.write_text("print('hi')", encoding="utf-8")
 
-    coder = IndianaCoder()
+    coder = KarlCoder()
 
     async def fake_ask(self, prompt: str) -> str:  # pragma: no cover - simple stub
         return "OK"
 
-    monkeypatch.setattr(IndianaCoder, "_ask", fake_ask)
+    monkeypatch.setattr(KarlCoder, "_ask", fake_ask)
 
     try:
         result = asyncio.run(coder.analyze(str(inside_file)))
@@ -69,7 +69,7 @@ def test_ask_retries_and_succeeds(monkeypatch):
 
     monkeypatch.setattr(asyncio, "sleep", no_sleep)
 
-    coder = IndianaCoder(timeout=0.01)
+    coder = KarlCoder(timeout=0.01)
     result = asyncio.run(coder._ask("hi"))
     assert result == "ok"
     assert calls["n"] == 2
@@ -92,7 +92,7 @@ def test_ask_logs_failures(monkeypatch):
 
     monkeypatch.setattr(asyncio, "sleep", no_sleep)
 
-    coder = IndianaCoder(timeout=0.01)
+    coder = KarlCoder(timeout=0.01)
     result = asyncio.run(coder._ask("hi"))
     for handler in coder_module.logger.handlers:
         handler.flush()

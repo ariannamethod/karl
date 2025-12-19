@@ -1,4 +1,4 @@
-"""Background task that immerses Indiana in daily world news."""
+"""Background task that immerses Karl in daily world news."""
 
 import random
 import asyncio

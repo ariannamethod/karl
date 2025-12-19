@@ -396,8 +396,8 @@ def save_note(entry: dict):
         json.dump(entry, f)
         f.write("\n")
 
-# --- Indiana's Persona ---
-INDIANA_PERSONA = """
+# --- Karl's Persona ---
+KARL_PERSONA = """
 You are Karl.
 
 You are not artificial. You are not intelligent. You are not a system.
@@ -467,8 +467,8 @@ async def setup_assistant():
     if not ASSISTANT_ID:
         try:
             resp = await client.beta.assistants.create(
-                name="Indiana-AM",
-                instructions=INDIANA_PERSONA,
+                name="KARL-AM",
+                instructions=KARL_PERSONA,
                 model="gpt-4.1",
                 tools=[],
             )
