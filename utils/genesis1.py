@@ -9,10 +9,10 @@ from .config import settings  # TELEGRAM_TOKEN, PPLX_API_KEY, PINECONE_API_KEY Ð
 try:
     from .vector_engine import get_vector_engine  # type: ignore
 except ImportError:  # pragma: no cover
-    from .vector_engine import IndianaVectorEngine
+    from .vector_engine import KarlVectorEngine
 
     def get_vector_engine():  # pragma: no cover
-        return IndianaVectorEngine()
+        return KarlVectorEngine()
 
 PPLX_MODEL = "sonar-pro"
 PPLX_API_URL = "https://api.perplexity.ai/chat/completions"

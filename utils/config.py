@@ -19,7 +19,7 @@ class Settings:
     TELEGRAM_TOKEN: str | None = os.getenv("TELEGRAM_BOT_TOKEN")
     OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
     PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
-    PINECONE_INDEX: str = os.getenv("PINECONE_INDEX", "indiana")
+    PINECONE_INDEX: str = os.getenv("PINECONE_INDEX", "karl")
     PINECONE_ENV: str = os.getenv("PINECONE_ENV", "")
     BASE_WEBHOOK_URL: str = os.getenv("BASE_WEBHOOK_URL", "")
     PORT: int = int(os.getenv("PORT", 8080))

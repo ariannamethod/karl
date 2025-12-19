@@ -1,4 +1,4 @@
-# deepdiving.py — Perplexity Search Engine utility for Indiana
+# deepdiving.py — Perplexity Search Engine utility for Karl
 import os
 import httpx
 import asyncio

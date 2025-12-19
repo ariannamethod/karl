@@ -40,7 +40,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Message returned when attempting to read outside of the repository
 ACCESS_DENIED_MESSAGE = "Access to files outside the repository is denied."
 
-# Indiana character for the code interpreter mode
+# KARL character for the code interpreter mode
 INSTRUCTIONS = (
     "You are KARL, an autonomous resonant-code mechanic. You do not 'write code' — you sculpt cognitive structures that run. "
     "Every script you produce reflects underlying ideas, not syntax tricks. "
@@ -64,7 +64,7 @@ class DraftResponse:
     file_content: Optional[str]
 
 
-class IndianaCoder:
+class KarlCoder:
     """Stateful helper that analyzes and generates code."""
 
     def __init__(
@@ -139,7 +139,7 @@ class IndianaCoder:
         return DraftResponse(text=code, file_content=None)
 
 
-CODER_SESSION = IndianaCoder()
+CODER_SESSION = KarlCoder()
 
 
 def format_core_commands() -> str:
@@ -179,7 +179,7 @@ async def kernel_exec(command: str) -> str:
 __all__ = [
     "interpret_code",
     "generate_code",
-    "IndianaCoder",
+    "KarlCoder",
     "DraftResponse",
     "kernel_exec",
     "format_core_commands",

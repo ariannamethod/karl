@@ -793,12 +793,12 @@ async def parse_and_store_file(
     handler: FileHandler | None = None,
     engine=None,
 ) -> str:
-    from utils.vector_engine import IndianaVectorEngine
+    from utils.vector_engine import KarlVectorEngine
     handler = handler or FileHandler()
 
     # Извлекаем содержимое файла без участия динамических весов
     text = await handler.extract_async(path)
-    engine = engine or IndianaVectorEngine()
+    engine = engine or KarlVectorEngine()
 
     # Кэш и релевантность
     with open(path, "rb") as f:
@@ -872,7 +872,7 @@ async def create_repo_snapshot(base_path: str = ".", out_path: str = REPO_SNAPSH
 
 # CLI для теста
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Indiana File Handler: Neural chaos shredder! #AriannaMethod 🌩️")
+    parser = argparse.ArgumentParser(description="KARL File Handler: Neural chaos shredder! #AriannaMethod 🌩️")
     parser.add_argument("--path", type=str, help="Path to file for parsing")
     parser.add_argument("--snapshot", action="store_true", help="Create repo snapshot")
     args = parser.parse_args()
